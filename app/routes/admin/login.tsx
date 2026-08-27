@@ -49,7 +49,7 @@ function LoginPage() {
         <CardHeader className="text-center pb-2">
           <div className="text-5xl mb-3">🏥</div>
           <CardTitle className="text-2xl">Admin Login</CardTitle>
-          <p className="text-gray-500 text-sm mt-1">Klinik Self Service</p>
+          <p className="text-gray-500 text-sm mt-1">Klinik Syamsinar Maros Self Service</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

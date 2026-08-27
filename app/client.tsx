@@ -1,10 +1,11 @@
 import { hydrateRoot } from "react-dom/client";
-import { StartClient } from "@tanstack/react-start/client";
+import { RouterProvider } from "@tanstack/react-router";
+import { hydrate } from "@tanstack/start-client-core";
 import { createRouter } from "./router";
 
 const router = createRouter();
+void hydrate(router);
 
-// Register router globally so StartClient can pick it up
-(globalThis as any).__tanstack_router__ = router;
+const client = hydrateRoot(document, <RouterProvider router={router} />);
 
-hydrateRoot(document, <StartClient />);
+export default client;

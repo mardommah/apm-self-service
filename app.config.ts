@@ -1,5 +1,6 @@
-import { defineConfig } from "@tanstack/start/config";
+import { defineConfig } from "@tanstack/react-start/config";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   server: {
@@ -7,5 +8,10 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    resolve: {
+      alias: {
+        "~": fileURLToPath(new URL("./app", import.meta.url)),
+      },
+    },
   },
 });

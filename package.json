@@ -3,12 +3,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vinxi dev",
+    "dev": "node --env-file=.env ./node_modules/vinxi/bin/cli.mjs dev",
     "build": "vinxi build",
-    "start": "vinxi start",
+    "start": "node --env-file=.env ./node_modules/vinxi/bin/cli.mjs start",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "frista:agent": "bun run tools/frista-agent/index.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.23",
@@ -22,7 +23,10 @@
     "@radix-ui/react-tabs": "1.1.21",
     "@radix-ui/react-toast": "1.2.23",
     "@tanstack/react-router": "1.120.20",
-    "@tanstack/react-start": "1.168.48",
+    "@tanstack/react-start": "1.120.20",
+    "@tanstack/router-generator": "1.120.20",
+    "@tanstack/router-plugin": "1.120.20",
+    "@tanstack/start-client-core": "1.120.19",
     "bcryptjs": "3.0.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -47,6 +51,30 @@
     "drizzle-kit": "0.31.1",
     "tailwindcss": "4.1.8",
     "typescript": "5.8.3",
+    "vite": "6.3.5"
+  },
+  "overrides": {
+    "@tanstack/history": "1.120.17",
+    "@tanstack/react-router": "1.120.20",
+    "@tanstack/react-start-client": "1.120.20",
+    "@tanstack/react-start-config": "1.120.20",
+    "@tanstack/react-start-plugin": "1.120.17",
+    "@tanstack/react-start-router-manifest": "1.120.19",
+    "@tanstack/react-start-server": "1.120.20",
+    "@tanstack/router-core": "1.120.19",
+    "@tanstack/router-generator": "1.120.20",
+    "@tanstack/router-plugin": "1.120.20",
+    "@tanstack/router-utils": "1.120.17",
+    "@tanstack/server-functions-plugin": "1.120.17",
+    "@tanstack/start-api-routes": "1.120.19",
+    "@tanstack/start-client-core": "1.120.19",
+    "@tanstack/start-server-core": "1.120.19",
+    "@tanstack/start-server-functions-client": "1.120.19",
+    "@tanstack/start-server-functions-handler": "1.120.19",
+    "@tanstack/start-server-functions-fetcher": "1.120.19",
+    "@tanstack/start-server-functions-server": "1.120.17",
+    "@tanstack/start-server-functions-ssr": "1.120.19",
+    "@tanstack/virtual-file-routes": "1.120.17",
     "vite": "6.3.5"
   }
 }

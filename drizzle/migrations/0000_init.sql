@@ -39,8 +39,8 @@ CREATE TABLE IF NOT EXISTS `visits` (
 
 -- ─── Seed: Services ──────────────────────────────────────────────────────────
 INSERT INTO `services` (`code`, `label`, `icon`, `is_active`) VALUES
-  ('registrasi',   'Registrasi Pasien', 'ClipboardList', TRUE),
-  ('poli_umum',    'Poli Umum',         'Stethoscope',   TRUE),
+  ('registrasi',   'Pasien BPJS',       'ClipboardList', TRUE),
+  ('poli_umum',    'Pasien Umum',       'Stethoscope',   TRUE),
   ('igd',          'IGD',               'Ambulance',     TRUE),
   ('laboratorium', 'Laboratorium',      'FlaskConical',  TRUE)
 ON DUPLICATE KEY UPDATE `label` = VALUES(`label`);
@@ -49,6 +49,6 @@ ON DUPLICATE KEY UPDATE `label` = VALUES(`label`);
 -- Password: admin123 (ganti setelah deploy!)
 -- Hash generated with bcrypt rounds=12
 INSERT INTO `admins` (`username`, `password`, `role`) VALUES
-  ('admin', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY2p7YKCdJAGNgq', 'admin'),
-  ('security', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY2p7YKCdJAGNgq', 'security')
+  ('admin', '$2b$12$FOd9F3ciUdyunGtKI1BFkOZAgQfQPBfD/kV4T.M2N0vNnti3Lj5PO', 'admin'),
+  ('security', '$2b$12$FOd9F3ciUdyunGtKI1BFkOZAgQfQPBfD/kV4T.M2N0vNnti3Lj5PO', 'security')
 ON DUPLICATE KEY UPDATE `role` = VALUES(`role`);

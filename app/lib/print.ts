@@ -4,6 +4,7 @@ export interface PrintData {
   createdAt: Date | string;
   status: string;
   appUrl: string;
+  barcodeEnabled?: boolean;
 }
 
 /**
@@ -28,7 +29,7 @@ async function tryApmPrint(data: PrintData): Promise<boolean> {
     await apm.print({
       template: "ticket",
       data: {
-        title: "Klinik Self Service",
+        title: "Klinik Syamsinar Maros Self Service",
         visitId: data.visitId,
         service: data.serviceLabel,
         date: new Date(data.createdAt).toLocaleDateString("id-ID", {
@@ -40,7 +41,7 @@ async function tryApmPrint(data: PrintData): Promise<boolean> {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        qrData: data.appUrl,
+        ...(data.barcodeEnabled ? { qrData: data.appUrl } : {}),
       },
     });
     return true;
@@ -90,7 +91,7 @@ function browserPrint(data: PrintData): void {
     </head>
     <body>
       <div class="center">
-        <div class="title">KLINIK SELF SERVICE</div>
+        <div class="title">Klinik Syamsinar Maros Self Service</div>
         <div>Tiket Kunjungan</div>
       </div>
       <div class="divider"></div>

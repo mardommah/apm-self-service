@@ -91,8 +91,11 @@ start: check-env ## Jalankan production server (setelah build)
 db-migrate-raw: check-env ## Buat database + jalankan 0000_init.sql langsung ke MariaDB
 	@echo "  📦  Membuat database '$(DB_NAME)' jika belum ada..."
 	@$(MYSQL_CMD) -e "CREATE DATABASE IF NOT EXISTS \`$(DB_NAME)\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-	@echo "  🗄️   Menjalankan migration: drizzle/migrations/0000_init.sql ..."
-	@$(MYSQL_CMD) '$(DB_NAME)' < drizzle/migrations/0000_init.sql
+	@echo "  🗄️   Menjalankan semua migration SQL ..."
+	@for migration in drizzle/migrations/*.sql; do \
+		echo "     $$migration"; \
+		$(MYSQL_CMD) '$(DB_NAME)' < "$$migration" || exit 1; \
+	done
 	@echo "  ✅  Migration selesai."
 
 db-generate: ## Generate Drizzle migration baru dari perubahan schema
@@ -112,8 +115,8 @@ db-seed: check-env ## Re-seed data default (services + admin accounts)
 	@echo "  🌱  Seeding data default..."
 	@$(MYSQL_CMD) '$(DB_NAME)' -e "\
 		INSERT INTO services (code, label, icon, is_active) VALUES \
-		  ('registrasi',   'Registrasi Pasien', 'ClipboardList', TRUE), \
-		  ('poli_umum',    'Poli Umum',         'Stethoscope',   TRUE), \
+		  ('registrasi',   'Pasien BPJS',       'ClipboardList', TRUE), \
+		  ('poli_umum',    'Pasien Umum',       'Stethoscope',   TRUE), \
 		  ('igd',          'IGD',               'Ambulance',     TRUE), \
 		  ('laboratorium', 'Laboratorium',      'FlaskConical',  TRUE) \
 		ON DUPLICATE KEY UPDATE label = VALUES(label), is_active = VALUES(is_active);"

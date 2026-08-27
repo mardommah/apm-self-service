@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
-import { SERVICE_ICONS, formatTime } from "~/lib/utils";
+import { SERVICE_ICONS } from "~/lib/utils";
+import { Button } from "~/components/ui/button";
+import { printTicket } from "~/lib/print";
 
 interface Props {
   visitId: string;
   serviceLabel: string;
   serviceCode: string;
+  createdAt: Date | string;
+  status: string;
   appUrl: string;
+  barcodeEnabled: boolean;
   timeoutMs: number;
   onTimeout: () => void;
 }
@@ -15,7 +20,10 @@ export function QRDisplay({
   visitId,
   serviceLabel,
   serviceCode,
+  createdAt,
+  status,
   appUrl,
+  barcodeEnabled,
   timeoutMs,
   onTimeout,
 }: Props) {
@@ -34,6 +42,17 @@ export function QRDisplay({
 
   const progress = (secondsLeft / Math.floor(timeoutMs / 1000)) * 100;
 
+  async function handlePrint() {
+    await printTicket({
+      visitId,
+      serviceLabel,
+      createdAt,
+      status,
+      appUrl: url,
+      barcodeEnabled,
+    });
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-gradient-to-b from-blue-50 to-white px-6 py-10 gap-8">
       {/* Header */}
@@ -42,19 +61,23 @@ export function QRDisplay({
           {icon}
         </div>
         <h1 className="text-3xl font-bold text-gray-900">{serviceLabel}</h1>
-        <p className="text-gray-500 mt-1 text-lg">Scan kode QR dengan kamera HP Anda</p>
+        <p className="text-gray-500 mt-1 text-lg">
+          {barcodeEnabled ? "Scan kode QR dengan kamera HP Anda" : "Cetak dan simpan karcis antrean Anda"}
+        </p>
       </div>
 
       {/* QR Code */}
-      <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-blue-100">
-        <QRCode
-          value={url}
-          size={260}
-          level="H"
-          style={{ display: "block" }}
-          aria-label={`QR code untuk kunjungan ${visitId}`}
-        />
-      </div>
+      {barcodeEnabled && (
+        <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-blue-100">
+          <QRCode
+            value={url}
+            size={260}
+            level="H"
+            style={{ display: "block" }}
+            aria-label={`QR code untuk kunjungan ${visitId}`}
+          />
+        </div>
+      )}
 
       {/* Visit ID */}
       <div className="text-center bg-blue-50 rounded-xl px-8 py-4 border border-blue-100">
@@ -82,8 +105,19 @@ export function QRDisplay({
         </div>
       </div>
 
+      <div className="grid w-full max-w-sm gap-3 no-print">
+        <Button size="lg" onClick={handlePrint} className="w-full">
+          🖨️ Cetak via Printer
+        </Button>
+        <Button asChild variant="secondary" size="lg" className="w-full">
+          <a href="/">&larr; Kembali ke Home</a>
+        </Button>
+      </div>
+
       <p className="text-xs text-gray-400 text-center max-w-xs">
-        Setelah scan, simpan atau cetak tiket dari HP Anda
+        {barcodeEnabled
+          ? "Setelah scan, simpan atau cetak tiket dari HP Anda"
+          : "Simpan karcis dan tunjukkan kepada petugas saat dipanggil"}
       </p>
     </div>
   );

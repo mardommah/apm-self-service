@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { BarcodeScanner, type ScanResult } from "~/components/admin/BarcodeScanner";
 import { markServed, getVisitById } from "~/server/functions/visits";
 import { verifyToken } from "~/server/functions/auth";
+import { getBarcodeEnabled } from "~/server/functions/settings";
 import { formatTime } from "~/lib/utils";
 
 const scanServeAction = createServerFn({ method: "POST" })
@@ -11,6 +12,7 @@ const scanServeAction = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ScanResult> => {
     const payload = verifyToken(data.token);
     if (!payload) throw new Error("UNAUTHORIZED");
+    if (!(await getBarcodeEnabled())) throw new Error("BARCODE_DISABLED");
 
     const visit = await getVisitById(data.visitId);
     if (!visit) {
@@ -53,6 +55,13 @@ const scanServeAction = createServerFn({ method: "POST" })
     };
   });
 
+const getScanSettingAction = createServerFn({ method: "GET" })
+  .validator((d: { token: string }) => d)
+  .handler(async ({ data }) => {
+    if (!verifyToken(data.token)) throw new Error("UNAUTHORIZED");
+    return getBarcodeEnabled();
+  });
+
 export const Route = createFileRoute("/admin/scan")({
   component: ScanPage,
 });
@@ -62,6 +71,7 @@ function ScanPage() {
   const [token, setToken] = useState<string>("");
   const [adminName, setAdminName] = useState<string>("");
   const [scanCount, setScanCount] = useState(0);
+  const [barcodeEnabled, setBarcodeEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -72,6 +82,7 @@ function ScanPage() {
       }
       setToken(getToken()!);
       setAdminName(getAdminUsername() ?? "");
+      setBarcodeEnabled(await getScanSettingAction({ data: { token: getToken()! } }));
     }
     init();
   }, []);
@@ -81,6 +92,20 @@ function ScanPage() {
     const result = await scanServeAction({ data: { token, visitId } });
     if (result.status === "success") setScanCount((c) => c + 1);
     return result;
+  }
+
+  if (barcodeEnabled === false) {
+    return (
+      <main className="min-h-dvh grid place-items-center bg-gray-900 px-6 text-center text-white">
+        <section className="max-w-md rounded-2xl border border-gray-700 bg-gray-800 p-8">
+          <h1 className="text-xl font-bold">Fitur barcode nonaktif</h1>
+          <p className="mt-2 text-gray-400">Aktifkan melalui Pengaturan Aplikasi.</p>
+          <Link to="/admin/dashboard" className="mt-5 inline-block text-blue-400 hover:underline">
+            Kembali ke Dashboard
+          </Link>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -110,7 +135,7 @@ function ScanPage() {
           </p>
         </div>
 
-        {token ? (
+        {token && barcodeEnabled ? (
           <BarcodeScanner onScan={handleScan} />
         ) : (
           <div className="text-gray-500 animate-pulse">Menginisialisasi kamera...</div>

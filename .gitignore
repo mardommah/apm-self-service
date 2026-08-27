@@ -4,3 +4,5 @@ node_modules
 .vinxi
 dist
 *.local
+
+app.config.timestamp_*.js

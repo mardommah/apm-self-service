@@ -65,7 +65,7 @@ export function VisitDetail({ visit, appUrl }: Props) {
           </div>
           <div className="text-xl font-bold">{visit.service.label}</div>
           <div className="text-blue-200 text-xs mt-1 uppercase tracking-widest">
-            Klinik Self Service
+            Klinik Syamsinar Maros Self Service
           </div>
         </div>
 
@@ -112,7 +112,7 @@ export function VisitDetail({ visit, appUrl }: Props) {
       {visit.status !== "revoked" && (
         <div className="w-full max-w-sm flex flex-col gap-3 no-print">
           <Button size="lg" onClick={handlePrint} className="w-full">
-            🖨️ Cetak Tiket
+            🖨️ Cetak via Printer
           </Button>
           <Button
             variant="outline"
@@ -124,6 +124,12 @@ export function VisitDetail({ visit, appUrl }: Props) {
           </Button>
         </div>
       )}
+
+      <div className="w-full max-w-sm no-print">
+        <Button asChild variant="secondary" size="lg" className="w-full">
+          <a href="/">&larr; Kembali ke Home</a>
+        </Button>
+      </div>
 
       <p className="text-xs text-gray-400 text-center max-w-xs no-print">
         Screenshot atau cetak halaman ini untuk menyimpan nomor antrian Anda

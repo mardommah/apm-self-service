@@ -10,26 +10,76 @@ import {
   markServed,
   revokeVisit,
   deleteVisit,
+  countVisits,
+  getAdminServices,
+  createPoliService,
+  updatePoliService,
 } from "~/server/functions/visits";
 import { verifyToken } from "~/server/functions/auth";
+import { getBarcodeEnabled, setBarcodeEnabled } from "~/server/functions/settings";
 import type { VisitStatus } from "~/server/schema";
 
 // ─── Server functions ─────────────────────────────────────────────────────────
 const getDashboardDataAction = createServerFn({ method: "GET" })
-  .validator((d: { token: string; status?: string; serviceCode?: string }) => d)
+  .validator((d: { token: string; status?: string; serviceCode?: string; page?: number }) => d)
   .handler(async ({ data }) => {
     const payload = verifyToken(data.token);
     if (!payload) throw new Error("UNAUTHORIZED");
 
-    const [visits, stats] = await Promise.all([
+    const pageSize = 10;
+    const page = Math.max(1, Math.floor(data.page ?? 1));
+    const filters = {
+      status: (data.status as VisitStatus) || undefined,
+      serviceCode: data.serviceCode || undefined,
+    };
+    const [visits, totalVisits, stats, services, barcodeEnabled] = await Promise.all([
       listVisits({
-        status: (data.status as VisitStatus) || undefined,
-        serviceCode: data.serviceCode || undefined,
-        limit: 200,
+        ...filters,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
       }),
+      countVisits(filters),
       getDailyStats(),
+      getAdminServices(),
+      getBarcodeEnabled(),
     ]);
-    return { visits, stats, admin: { username: payload.username, role: payload.role } };
+    return {
+      visits,
+      totalVisits,
+      page,
+      pageSize,
+      stats,
+      services,
+      barcodeEnabled,
+      admin: { username: payload.username, role: payload.role },
+    };
+  });
+
+const createPoliAction = createServerFn({ method: "POST" })
+  .validator((d: { token: string; code: string; label: string }) => d)
+  .handler(async ({ data }) => {
+    const payload = verifyToken(data.token);
+    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
+    await createPoliService(data.code, data.label);
+    return { ok: true };
+  });
+
+const updatePoliAction = createServerFn({ method: "POST" })
+  .validator((d: { token: string; id: number; label: string; isActive: boolean }) => d)
+  .handler(async ({ data }) => {
+    const payload = verifyToken(data.token);
+    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
+    await updatePoliService(data.id, data.label, data.isActive);
+    return { ok: true };
+  });
+
+const updateBarcodeSettingAction = createServerFn({ method: "POST" })
+  .validator((d: { token: string; enabled: boolean }) => d)
+  .handler(async ({ data }) => {
+    const payload = verifyToken(data.token);
+    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
+    await setBarcodeEnabled(data.enabled);
+    return { ok: true };
   });
 
 const serveAction = createServerFn({ method: "POST" })
@@ -70,6 +120,13 @@ function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [page, setPage] = useState(1);
+  const [poliCode, setPoliCode] = useState("poli_");
+  const [poliLabel, setPoliLabel] = useState("");
+  const [poliError, setPoliError] = useState("");
+  const [savingPoli, setSavingPoli] = useState(false);
+  const [poliModalOpen, setPoliModalOpen] = useState(false);
+  const [savingBarcode, setSavingBarcode] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -80,30 +137,81 @@ function DashboardPage() {
       }
       const t = getToken()!;
       setToken(t);
-      fetchData(t);
+      fetchData(t, "", "", 1);
     }
     init();
   }, []);
 
   useEffect(() => {
     if (!token || !autoRefresh) return;
-    const interval = setInterval(() => fetchData(token), 30_000);
+    const interval = setInterval(
+      () => fetchData(token, statusFilter, serviceFilter, page),
+      30_000,
+    );
     return () => clearInterval(interval);
-  }, [token, autoRefresh]);
+  }, [token, autoRefresh, statusFilter, serviceFilter, page]);
 
-  async function fetchData(t: string, status?: string, service?: string) {
+  async function fetchData(t: string, status?: string, service?: string, targetPage = page) {
     try {
       const result = await getDashboardDataAction({
-        data: { token: t, status, serviceCode: service },
+        data: { token: t, status, serviceCode: service, page: targetPage },
       });
       setData(result);
+      setPage(result.page);
     } catch {
       navigate({ to: "/admin/login" });
     }
   }
 
   async function handleApplyFilter() {
-    if (token) fetchData(token, statusFilter, serviceFilter);
+    if (token) fetchData(token, statusFilter, serviceFilter, 1);
+  }
+
+  async function handleCreatePoli(event: React.FormEvent) {
+    event.preventDefault();
+    if (!token) return;
+    setSavingPoli(true);
+    setPoliError("");
+    try {
+      await createPoliAction({ data: { token, code: poliCode, label: poliLabel } });
+      setPoliCode("poli_");
+      setPoliLabel("");
+      await fetchData(token, statusFilter, serviceFilter, page);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setPoliError(
+        message.includes("Duplicate")
+          ? "Kode poli sudah digunakan."
+          : "Kode harus diawali poli_ dan hanya berisi huruf kecil, angka, atau underscore.",
+      );
+    } finally {
+      setSavingPoli(false);
+    }
+  }
+
+  async function handleUpdatePoli(id: number, label: string, isActive: boolean) {
+    if (!token) return;
+    setSavingPoli(true);
+    setPoliError("");
+    try {
+      await updatePoliAction({ data: { token, id, label, isActive } });
+      await fetchData(token, statusFilter, serviceFilter, page);
+    } catch {
+      setPoliError("Poli gagal diperbarui.");
+    } finally {
+      setSavingPoli(false);
+    }
+  }
+
+  async function handleBarcodeSetting(enabled: boolean) {
+    if (!token) return;
+    setSavingBarcode(true);
+    try {
+      await updateBarcodeSettingAction({ data: { token, enabled } });
+      await fetchData(token, statusFilter, serviceFilter, page);
+    } finally {
+      setSavingBarcode(false);
+    }
   }
 
   async function handleServe(visitId: string) {
@@ -155,22 +263,138 @@ function DashboardPage() {
 
   return (
     <div className="min-h-dvh bg-gray-50">
+      {poliModalOpen && data.admin.role === "admin" && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+          role="presentation"
+          onClick={() => !savingPoli && setPoliModalOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="poli-settings-title"
+            onClick={(event) => event.stopPropagation()}
+            className="relative max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <button
+              type="button"
+              aria-label="Tutup pengaturan poli"
+              disabled={savingPoli}
+              onClick={() => setPoliModalOpen(false)}
+              className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-gray-100 text-xl text-gray-600 hover:bg-gray-200 disabled:opacity-50"
+            >
+              ×
+            </button>
+
+            <h2 id="poli-settings-title" className="pr-12 text-xl font-semibold text-gray-800">
+              Pengaturan Aplikasi
+            </h2>
+
+            <div className="mt-5 flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div>
+                <p className="font-medium text-gray-800">Fitur barcode / QR</p>
+                <p className="text-sm text-gray-500">
+                  Jika nonaktif, kiosk hanya menampilkan dan mencetak karcis antrean.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant={data.barcodeEnabled ? "success" : "outline"}
+                disabled={savingBarcode}
+                onClick={() => handleBarcodeSetting(!data.barcodeEnabled)}
+              >
+                {data.barcodeEnabled ? "Aktif" : "Nonaktif"}
+              </Button>
+            </div>
+
+            <h3 className="mt-7 font-semibold text-gray-800">Pengaturan Poli</h3>
+            <p className="mt-1 text-sm text-gray-500">Poli aktif tampil pada pilihan layanan.</p>
+
+            <form onSubmit={handleCreatePoli} className="mt-5 grid gap-3 md:grid-cols-[1fr_1.5fr_auto]">
+              <input
+                value={poliCode}
+                onChange={(event) => setPoliCode(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                placeholder="poli_gigi"
+                aria-label="Kode poli"
+                required
+                className="h-10 rounded-md border border-gray-300 px-3 text-sm"
+              />
+              <input
+                value={poliLabel}
+                onChange={(event) => setPoliLabel(event.target.value)}
+                placeholder="Nama poli"
+                aria-label="Nama poli"
+                maxLength={100}
+                required
+                className="h-10 rounded-md border border-gray-300 px-3 text-sm"
+              />
+              <Button type="submit" disabled={savingPoli}>Tambah Poli</Button>
+            </form>
+
+            {poliError && <p className="mt-3 text-sm text-red-600">{poliError}</p>}
+
+            <div className="mt-5 divide-y rounded-lg border">
+              {data.services.filter((service) => service.code.startsWith("poli_")).map((service) => (
+                <div key={service.id} className="grid items-center gap-3 p-3 md:grid-cols-[1fr_1.5fr_auto]">
+                  <code className="text-sm text-gray-600">{service.code}</code>
+                  <input
+                    defaultValue={service.label}
+                    maxLength={100}
+                    aria-label={`Nama ${service.code}`}
+                    className="h-9 rounded-md border border-gray-300 px-3 text-sm"
+                    onBlur={(event) => {
+                      if (event.target.value.trim() !== service.label) {
+                        handleUpdatePoli(service.id, event.target.value, service.isActive);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={service.isActive ? "outline" : "success"}
+                    disabled={savingPoli}
+                    onClick={() => handleUpdatePoli(service.id, service.label, !service.isActive)}
+                  >
+                    {service.isActive ? "Nonaktifkan" : "Aktifkan"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Navbar */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🏥</span>
           <div>
-            <h1 className="font-bold text-gray-900">Klinik Self Service</h1>
+            <h1 className="font-bold text-gray-900">Klinik Syamsinar Maros Self Service</h1>
             <p className="text-xs text-gray-400">Admin Dashboard</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            to="/admin/scan"
-            className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2"
-          >
-            📷 Scan Barcode
-          </Link>
+          {data.admin.role === "admin" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Buka pengaturan poli"
+              title="Pengaturan Poli"
+              onClick={() => setPoliModalOpen(true)}
+              className="text-xl"
+            >
+              ⚙️
+            </Button>
+          )}
+          {data.barcodeEnabled && (
+            <Link
+              to="/admin/scan"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2"
+            >
+              📷 Scan Barcode
+            </Link>
+          )}
           <span className="text-sm text-gray-600 hidden sm:block">
             {data.admin.username}
             <span className="ml-1 text-xs text-gray-400">({data.admin.role})</span>
@@ -231,10 +455,9 @@ function DashboardPage() {
               className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
             >
               <option value="">Semua Layanan</option>
-              <option value="registrasi">Registrasi</option>
-              <option value="poli_umum">Poli Umum</option>
-              <option value="igd">IGD</option>
-              <option value="laboratorium">Laboratorium</option>
+              {data.services.map((service) => (
+                <option key={service.code} value={service.code}>{service.label}</option>
+              ))}
             </select>
           </div>
           <Button onClick={handleApplyFilter} size="sm">
@@ -247,7 +470,7 @@ function DashboardPage() {
               onClick={() => {
                 setStatusFilter("");
                 setServiceFilter("");
-                fetchData(token);
+                fetchData(token, "", "", 1);
               }}
             >
               Reset
@@ -260,7 +483,7 @@ function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-800 mb-3">
             Daftar Kunjungan
             <span className="ml-2 text-sm font-normal text-gray-400">
-              ({data.visits.length} record)
+              ({data.totalVisits} record)
             </span>
           </h2>
           <VisitsTable
@@ -270,6 +493,25 @@ function DashboardPage() {
             onDelete={handleDelete}
             loading={loadingVisit}
           />
+          <nav className="mt-4 flex items-center justify-between" aria-label="Pagination kunjungan">
+              <Button
+                variant="outline"
+                disabled={page <= 1}
+                onClick={() => fetchData(token, statusFilter, serviceFilter, page - 1)}
+              >
+                ← Sebelumnya
+              </Button>
+              <span className="text-sm text-gray-600">
+                Halaman {page} dari {Math.ceil(data.totalVisits / data.pageSize)}
+              </span>
+              <Button
+                variant="outline"
+                disabled={page >= Math.ceil(data.totalVisits / data.pageSize)}
+                onClick={() => fetchData(token, statusFilter, serviceFilter, page + 1)}
+              >
+                Berikutnya →
+              </Button>
+          </nav>
         </section>
       </main>
     </div>
