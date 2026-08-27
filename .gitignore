@@ -6,3 +6,4 @@ dist
 *.local
 
 app.config.timestamp_*.js
+jkn-biometrik-bot

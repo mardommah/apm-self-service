@@ -28,6 +28,14 @@ type MliteCheckInResponse = {
   noSep?: string | null;
 };
 
+type FktlResponse<T = never> = {
+  response?: T;
+  metadata?: {
+    message?: string;
+    code?: number | string;
+  };
+};
+
 const terminalStates = new Set(["checked_in", "sep_issued", "completed"]);
 
 function sha256(value: string) {
@@ -74,6 +82,94 @@ async function mliteRequest<T>(path: string, body?: unknown): Promise<T> {
     throw new Error(payload?.error?.code ?? "MLITE_REQUEST_FAILED");
   }
   return payload;
+}
+
+function bpjsFktlConfig() {
+  const baseUrl = process.env.BPJS_FKTL_BASE_URL?.replace(/\/$/, "");
+  const username = process.env.BPJS_FKTL_USERNAME;
+  const password = process.env.BPJS_FKTL_PASSWORD;
+  if (!baseUrl || !username || !password) throw new Error("BPJS_FKTL_NOT_CONFIGURED");
+  return {
+    baseUrl,
+    username,
+    password,
+    timeout: Number(process.env.BPJS_FKTL_REQUEST_TIMEOUT_MS ?? 15_000),
+  };
+}
+
+async function parseFktlResponse<T>(response: Response): Promise<FktlResponse<T>> {
+  const payload = (await response.json().catch(() => null)) as FktlResponse<T> | null;
+  if (!payload) throw new Error("BPJS_FKTL_INVALID_RESPONSE");
+  if (!response.ok || Number(payload.metadata?.code) !== 200) {
+    throw new Error(payload.metadata?.message || "BPJS_FKTL_REQUEST_FAILED");
+  }
+  return payload;
+}
+
+function createSignedFristaJob(jobId: string, cardNumber: string) {
+  if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
+  const secret = process.env.FRISTA_AGENT_SHARED_SECRET;
+  const agentUrl = process.env.FRISTA_AGENT_URL?.replace(/\/$/, "");
+  if (!secret || secret.length < 32 || !agentUrl) throw new Error("FRISTA_AGENT_NOT_CONFIGURED");
+
+  const payload = {
+    visitId: jobId,
+    cardHash: sha256(cardNumber),
+    exp: Math.floor(Date.now() / 1000) + 120,
+  };
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = createHmac("sha256", secret).update(encoded).digest("base64url");
+  return { agentUrl, token: `${encoded}.${signature}` };
+}
+
+export async function checkInBpjsBooking(bookingCode: string, cardNumber: string) {
+  const normalizedBookingCode = bookingCode.trim();
+  if (!normalizedBookingCode || normalizedBookingCode.length > 100) {
+    throw new Error("BOOKING_CODE_INVALID");
+  }
+  const fristaJob = createSignedFristaJob(
+    `booking:${sha256(normalizedBookingCode).slice(0, 26)}`,
+    cardNumber,
+  );
+
+  const { baseUrl, username, password, timeout } = bpjsFktlConfig();
+  try {
+    const authResponse = await fetch(`${baseUrl}/auth`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "x-username": username,
+        "x-password": password,
+      },
+      signal: AbortSignal.timeout(timeout),
+    });
+    const auth = await parseFktlResponse<{ token?: string }>(authResponse);
+    const token = auth.response?.token;
+    if (!token) throw new Error("BPJS_FKTL_TOKEN_MISSING");
+
+    const checkInResponse = await fetch(`${baseUrl}/checkinantrean`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "x-token": token,
+        "x-username": username,
+      },
+      body: JSON.stringify({
+        kodebooking: normalizedBookingCode,
+        waktu: Date.now(),
+      }),
+      signal: AbortSignal.timeout(timeout),
+    });
+    const result = await parseFktlResponse(checkInResponse);
+    return { message: result.metadata?.message || "Ok", fristaJob };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("BPJS_FKTL_")) throw error;
+    if (error instanceof TypeError || (error instanceof Error && error.name === "TimeoutError")) {
+      throw new Error("BPJS_FKTL_UNAVAILABLE");
+    }
+    throw error;
+  }
 }
 
 async function assertBpjsRegistrationVisit(visitId: string) {
@@ -172,22 +268,12 @@ export async function createFristaJob(visitId: string, cardNumber: string) {
   if (!workflow.cardHash || !timingSafeEqual(Buffer.from(workflow.cardHash), Buffer.from(sha256(cardNumber)))) {
     throw new Error("PATIENT_MISMATCH");
   }
-  const secret = process.env.FRISTA_AGENT_SHARED_SECRET;
-  const agentUrl = process.env.FRISTA_AGENT_URL?.replace(/\/$/, "");
-  if (!secret || secret.length < 32 || !agentUrl) throw new Error("FRISTA_AGENT_NOT_CONFIGURED");
-
-  const payload = {
-    visitId,
-    cardHash: workflow.cardHash,
-    exp: Math.floor(Date.now() / 1000) + 120,
-  };
-  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature = createHmac("sha256", secret).update(encoded).digest("base64url");
+  const job = createSignedFristaJob(visitId, cardNumber);
   await getDb()
     .update(bpjsWorkflows)
     .set({ state: "frista_running", lastErrorCode: null, updatedAt: new Date() })
     .where(eq(bpjsWorkflows.visitId, visitId));
-  return { agentUrl, token: `${encoded}.${signature}` };
+  return job;
 }
 
 export async function checkBpjsBiometric(visitId: string) {
