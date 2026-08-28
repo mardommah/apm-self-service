@@ -135,13 +135,21 @@ export async function checkInBpjsBooking(
     throw new Error("BOOKING_CODE_INVALID");
   }
   if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
-  const bookingData = source === "manual"
+  const bookingData = source === "manual" && !fristaBypassEnabled
     ? await findTodaySimrsBooking(normalizedBookingCode, cardNumber)
     : null;
   const fristaJob = createSignedFristaJob(
     `booking:${sha256(normalizedBookingCode).slice(0, 26)}`,
     cardNumber,
   );
+  if (fristaBypassEnabled) {
+    return {
+      message: "Mode uji aktif. Validasi SIM RS dan FKTL dilewati; proses dilanjutkan ke Frista.",
+      fristaJob,
+      validationPassed: false,
+      bookingData: null,
+    };
+  }
 
   try {
     const { baseUrl, username, password, timeout } = bpjsFktlConfig();
@@ -175,14 +183,6 @@ export async function checkInBpjsBooking(
     const result = await parseFktlResponse(checkInResponse);
     return { message: result.metadata?.message || "Ok", fristaJob, validationPassed: true, bookingData };
   } catch (error) {
-    if (fristaBypassEnabled) {
-      return {
-        message: "Validasi FKTL gagal. Mode dev aktif; proses dilanjutkan ke Frista.",
-        fristaJob,
-        validationPassed: false,
-        bookingData,
-      };
-    }
     if (error instanceof Error && error.message.startsWith("BPJS_FKTL_")) throw error;
     if (error instanceof TypeError || (error instanceof Error && error.name === "TimeoutError")) {
       throw new Error("BPJS_FKTL_UNAVAILABLE");

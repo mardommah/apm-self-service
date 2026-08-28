@@ -434,7 +434,7 @@ function KioskPage() {
               <h2 className="pr-14 text-2xl font-bold text-gray-900">Check-in BPJS</h2>
               <p className="mt-2 text-gray-500">
                 {fristaBypassEnabled
-                  ? "Mode uji Frista aktif. Validasi FKTL tetap dijalankan; kegagalan tidak menghentikan proses Frista."
+                  ? "Mode uji Frista aktif. Validasi SIM RS dan FKTL dilewati sementara."
                   : "Scan satu QR check-in Mobile JKN untuk mengisi nomor kartu dan kode booking. Input manual tetap tersedia."}
               </p>
               <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
@@ -521,7 +521,7 @@ function KioskPage() {
               </label>
               {fristaBypassEnabled && (
                 <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-                  Pengujian aktif: kegagalan validasi FKTL tidak menghentikan Frista. Bukti dicetak jika data berasal dari scan QR.
+                  Pengujian aktif: nomor kartu dan booking langsung diteruskan ke Frista tanpa validasi SIM RS atau FKTL.
                 </div>
               )}
               {error && (
