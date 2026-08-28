@@ -160,7 +160,6 @@ function KioskPage() {
         return;
       }
       setError("");
-      setGeneralPatientLoaded(false);
       setGeneralPatientOpen(true);
       return;
     }
@@ -282,8 +281,11 @@ function KioskPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 max-w-5xl mx-auto w-full gap-6">
-        {generalPatientOpen && generalPatientUrl && (
-          <section className="fixed inset-0 z-[60] flex flex-col bg-white" aria-label="Anjungan pasien umum">
+        {generalPatientUrl && (
+          <section
+            className={`${generalPatientOpen ? "flex" : "hidden"} fixed inset-0 z-[60] flex-col bg-white`}
+            aria-label="Anjungan pasien umum"
+          >
             <header className="flex items-center justify-between gap-4 bg-blue-700 px-6 py-4 text-white shadow-lg">
               <div>
                 <h2 className="text-xl font-bold">Pendaftaran Pasien Umum</h2>
@@ -293,7 +295,6 @@ function KioskPage() {
                 type="button"
                 onClick={() => {
                   setGeneralPatientOpen(false);
-                  setGeneralPatientLoaded(false);
                 }}
                 className="rounded-xl bg-white px-5 py-3 font-bold text-blue-700 shadow hover:bg-blue-50"
               >
