@@ -87,7 +87,7 @@ export function BpjsCameraScanner({ onCheckinScan }: Props) {
           formatsToSupport: [
             Html5QrcodeSupportedFormats.QR_CODE,
           ],
-          useBarCodeDetectorIfSupported: true,
+          useBarCodeDetectorIfSupported: false,
           verbose: false,
         });
         scannerRef.current = scanner;
@@ -126,10 +126,16 @@ export function BpjsCameraScanner({ onCheckinScan }: Props) {
             width: { ideal: 1280 },
             height: { ideal: 720 },
             frameRate: { ideal: 30 },
+          });
+        } catch {
+          // Kamera lama tetap dapat dipakai dengan resolusi default perangkat.
+        }
+        try {
+          await scanner.applyVideoConstraints({
             advanced: [{ focusMode: "continuous" }],
           });
         } catch {
-          // Kamera lama tetap dapat dipakai tanpa resolusi atau autofocus khusus.
+          // Webcam fixed-focus tetap dapat dipakai tanpa autofocus.
         }
       } catch {
         if (!disposed) {
