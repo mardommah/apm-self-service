@@ -23,6 +23,7 @@ type CheckinResult =
 type KioskData = {
   services: Service[];
   fristaBypassEnabled: boolean;
+  generalPatientUrl: string | null;
 };
 type KioskActionInput =
   | { action: "services" }
@@ -42,7 +43,12 @@ const kioskAction = createServerFn({ method: "POST" })
         getAllServices(),
         getFristaBypassEnabled(),
       ]);
-      return { services, fristaBypassEnabled } satisfies KioskData;
+      let generalPatientUrl: string | null = null;
+      try {
+        const url = new URL(process.env.MLITE_GENERAL_PATIENT_URL ?? "");
+        if (url.protocol === "http:" || url.protocol === "https:") generalPatientUrl = url.toString();
+      } catch {}
+      return { services, fristaBypassEnabled, generalPatientUrl } satisfies KioskData;
     }
     if (data.action === "checkin") {
       try {
@@ -107,11 +113,13 @@ export const Route = createFileRoute("/kiosk/")({
 });
 
 function KioskPage() {
-  const { services, fristaBypassEnabled } = Route.useLoaderData() as KioskData;
+  const { services, fristaBypassEnabled, generalPatientUrl } = Route.useLoaderData() as KioskData;
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [patientTypeOpen, setPatientTypeOpen] = useState(false);
+  const [generalPatientOpen, setGeneralPatientOpen] = useState(false);
+  const [generalPatientLoaded, setGeneralPatientLoaded] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingNumber, setBookingNumber] = useState("");
   const [bpjsCardNumber, setBpjsCardNumber] = useState("");
@@ -144,6 +152,16 @@ function KioskPage() {
       setError("");
       setCheckinMessage("");
       setPatientTypeOpen(true);
+      return;
+    }
+    if (serviceCode === "poli_umum") {
+      if (!generalPatientUrl) {
+        setError("Halaman anjungan pasien umum belum dikonfigurasi.");
+        return;
+      }
+      setError("");
+      setGeneralPatientLoaded(false);
+      setGeneralPatientOpen(true);
       return;
     }
     await submitVisit(serviceCode);
@@ -264,6 +282,42 @@ function KioskPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 max-w-5xl mx-auto w-full gap-6">
+        {generalPatientOpen && generalPatientUrl && (
+          <section className="fixed inset-0 z-[60] flex flex-col bg-white" aria-label="Anjungan pasien umum">
+            <header className="flex items-center justify-between gap-4 bg-blue-700 px-6 py-4 text-white shadow-lg">
+              <div>
+                <h2 className="text-xl font-bold">Pendaftaran Pasien Umum</h2>
+                <p className="text-sm text-blue-100">Selesaikan pendaftaran pada halaman anjungan.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setGeneralPatientOpen(false);
+                  setGeneralPatientLoaded(false);
+                }}
+                className="rounded-xl bg-white px-5 py-3 font-bold text-blue-700 shadow hover:bg-blue-50"
+              >
+                Kembali ke Home
+              </button>
+            </header>
+            <div className="relative min-h-0 flex-1">
+              {!generalPatientLoaded && (
+                <div className="absolute inset-0 z-10 grid place-items-center bg-white">
+                  <div className="text-center">
+                    <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-700" />
+                    <p className="mt-4 font-semibold text-blue-800">Memuat halaman anjungan...</p>
+                  </div>
+                </div>
+              )}
+              <iframe
+                src={generalPatientUrl}
+                title="Halaman pendaftaran pasien umum"
+                onLoad={() => setGeneralPatientLoaded(true)}
+                className="h-full w-full border-0"
+              />
+            </div>
+          </section>
+        )}
         {fristaProcessing && (
           <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/70 p-6 backdrop-blur-sm">
             <section
