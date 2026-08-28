@@ -182,9 +182,8 @@ function KioskPage() {
       return;
     }
     if (
-      !checkinQrData ||
-      checkinQrData.bookingCode !== booking ||
-      checkinQrData.cardNumber !== bpjsCardNumber
+      checkinQrData &&
+      (checkinQrData.bookingCode !== booking || checkinQrData.cardNumber !== bpjsCardNumber)
     ) {
       setError("Scan QR check-in agar data bukti cetak tersedia dan sesuai.");
       return;
@@ -220,10 +219,7 @@ function KioskPage() {
       if (!response.ok && !fristaBypassEnabled) {
         throw new Error("FRISTA_AGENT_FAILED");
       }
-      if (!checkinQrData) {
-        throw new Error("CHECKIN_PRINT_DATA_MISSING");
-      }
-      printBpjsCheckin(checkinQrData);
+      if (checkinQrData) printBpjsCheckin(checkinQrData);
       setBookingOpen(false);
       setBookingNumber("");
       setBpjsCardNumber("");
@@ -233,9 +229,13 @@ function KioskPage() {
       setFristaValidationPassed(true);
       setCheckinQrData(null);
       setCheckinMessage(
-        validationPassed && response.ok
-          ? "Proses Frista selesai. Bukti check-in telah dikirim ke printer."
-          : "Mode dev: validasi atau Frista berstatus gagal. Bukti QR tetap dikirim ke printer.",
+        checkinQrData
+          ? validationPassed && response.ok
+            ? "Proses Frista selesai. Bukti check-in telah dikirim ke printer."
+            : "Mode dev: validasi atau Frista berstatus gagal. Bukti QR tetap dikirim ke printer."
+          : validationPassed && response.ok
+            ? "Proses Frista selesai."
+            : "Mode dev: validasi atau Frista berstatus gagal. Proses manual selesai.",
       );
     } catch (cause) {
       setError(
@@ -420,7 +420,7 @@ function KioskPage() {
               <h2 className="pr-14 text-2xl font-bold text-gray-900">Check-in BPJS</h2>
               <p className="mt-2 text-gray-500">
                 {fristaBypassEnabled
-                  ? "Mode uji Frista aktif. Validasi FKTL tetap dijalankan; kegagalan tidak menghentikan Frista dan pencetakan."
+                  ? "Mode uji Frista aktif. Validasi FKTL tetap dijalankan; kegagalan tidak menghentikan proses Frista."
                   : "Scan satu QR check-in Mobile JKN untuk mengisi nomor kartu dan kode booking. Input manual tetap tersedia."}
               </p>
               <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
@@ -507,7 +507,7 @@ function KioskPage() {
               </label>
               {fristaBypassEnabled && (
                 <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-                  Pengujian aktif: kegagalan validasi FKTL tidak menghentikan Frista. Bukti QR tetap dicetak setelah agent merespons.
+                  Pengujian aktif: kegagalan validasi FKTL tidak menghentikan Frista. Bukti dicetak jika data berasal dari scan QR.
                 </div>
               )}
               {error && (
