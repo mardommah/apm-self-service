@@ -94,10 +94,10 @@ export function BpjsCameraScanner({ onCheckinScan }: Props) {
         await scanner.start(
           { facingMode: "environment" },
           {
-            fps: 15,
+            fps: 25,
             aspectRatio: 16 / 9,
             qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-              const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.75);
+              const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.9);
               return { width: size, height: size };
             },
           },
@@ -123,11 +123,13 @@ export function BpjsCameraScanner({ onCheckinScan }: Props) {
         );
         try {
           await scanner.applyVideoConstraints({
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 },
+            advanced: [{ focusMode: "continuous" }],
           });
         } catch {
-          // Kamera tetap dapat dipakai dengan resolusi default perangkat.
+          // Kamera lama tetap dapat dipakai tanpa resolusi atau autofocus khusus.
         }
       } catch {
         if (!disposed) {
@@ -160,7 +162,7 @@ export function BpjsCameraScanner({ onCheckinScan }: Props) {
         <div id={scannerElementId} className="min-h-56 w-full" />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 aspect-square h-[75%] -translate-x-1/2 -translate-y-1/2 rounded-xl border-4 border-green-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.2)]"
+          className="pointer-events-none absolute left-1/2 top-1/2 aspect-square h-[90%] -translate-x-1/2 -translate-y-1/2 rounded-xl border-4 border-green-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.2)]"
         />
       </div>
       <div className="bg-white p-3 text-center">
