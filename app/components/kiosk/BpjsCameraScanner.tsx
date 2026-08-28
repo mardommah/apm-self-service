@@ -1,86 +1,80 @@
 import { useEffect, useRef, useState } from "react";
 
+export type BpjsCheckinQrData = {
+  bookingCode: string;
+  cardNumber: string;
+  referralNumber: string;
+  medicalRecordNumber: string;
+  doctorName: string;
+  queueNumber: string;
+};
+
 type Props = {
-  step: "booking" | "card";
-  onBookingScan: (bookingCode: string) => void;
-  onCardScan: (cardNumber: string) => void;
+  onCheckinScan: (data: BpjsCheckinQrData) => void;
 };
 
 const scannerElementId = "bpjs-checkin-camera";
 
-function bookingCodeFromScan(decodedText: string) {
-  const raw = decodedText.trim();
-  if (!raw || raw.length > 500) return null;
-
+function jsonFromScan(raw: string) {
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const value = parsed.kodebooking ?? parsed.kodeBooking ?? parsed.bookingCode;
-    if (typeof value === "string" && value.trim()) return value.trim().slice(0, 100);
+    return JSON.parse(raw) as Record<string, unknown>;
   } catch {}
 
-  try {
-    const url = new URL(raw);
-    const queryValue =
-      url.searchParams.get("kodebooking") ??
-      url.searchParams.get("kodeBooking") ??
-      url.searchParams.get("bookingCode");
-    if (queryValue) return queryValue.trim().slice(0, 100);
-    const lastPath = url.pathname.split("/").filter(Boolean).at(-1);
-    if (lastPath) return decodeURIComponent(lastPath).trim().slice(0, 100);
-  } catch {}
-
-  return raw.length <= 100 ? raw : null;
-}
-
-function cardNumberFromScan(decodedText: string) {
-  const raw = decodedText.trim();
-  if (/^\d{13}$/.test(raw)) return raw;
-
-  // QR kartu digital Mobile JKN berisi JSON yang dikodekan sebagai Base64.
   try {
     const normalized = raw.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
     const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
-    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
-    const value = parsed.nomorKartu;
-    if (typeof value === "string" && /^\d{13}$/.test(value.trim())) return value.trim();
-  } catch {}
-
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const value = parsed.nomorKartu ?? parsed.nomorkartu ?? parsed.noKartu ?? parsed.cardNumber;
-    if (typeof value === "string" && /^\d{13}$/.test(value.trim())) return value.trim();
-  } catch {}
-
-  try {
-    const url = new URL(raw);
-    const value =
-      url.searchParams.get("nomorKartu") ??
-      url.searchParams.get("nomorkartu") ??
-      url.searchParams.get("noKartu") ??
-      url.searchParams.get("cardNumber");
-    if (value && /^\d{13}$/.test(value.trim())) return value.trim();
-  } catch {}
-
-  return raw.match(/(?:^|\D)(\d{13})(?:\D|$)/)?.[1] ?? null;
+    return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
-export function BpjsCameraScanner({ step, onBookingScan, onCardScan }: Props) {
+function checkinDataFromScan(decodedText: string) {
+  const raw = decodedText.trim();
+  if (!raw || raw.length > 500) return null;
+
+  const parsed = jsonFromScan(raw);
+  if (parsed) {
+    const bookingValue = parsed.kodebooking ?? parsed.kodeBooking ?? parsed.bookingCode;
+    const cardValue = parsed.nokapst ?? parsed.nomorKartu ?? parsed.nomorkartu ?? parsed.noKartu;
+    const referralValue = parsed.noRujukan;
+    const medicalRecordValue = parsed.norm;
+    const doctorValue = parsed.namaDokter;
+    const queueValue = parsed.nomorAntrean;
+    const bookingCode = typeof bookingValue === "string" ? bookingValue.trim() : "";
+    const cardNumber = typeof cardValue === "string" ? cardValue.trim() : "";
+    const referralNumber = typeof referralValue === "string" ? referralValue.trim() : "";
+    const medicalRecordNumber = typeof medicalRecordValue === "string" ? medicalRecordValue.trim() : "";
+    const doctorName = typeof doctorValue === "string" ? doctorValue.trim() : "";
+    const queueNumber = typeof queueValue === "string" ? queueValue.trim().replace(/\s+/g, " ") : "";
+    if (
+      bookingCode &&
+      bookingCode.length <= 100 &&
+      /^\d{13}$/.test(cardNumber) &&
+      referralNumber &&
+      medicalRecordNumber &&
+      doctorName &&
+      queueNumber
+    ) {
+      return { bookingCode, cardNumber, referralNumber, medicalRecordNumber, doctorName, queueNumber };
+    }
+  }
+  return null;
+}
+
+export function BpjsCameraScanner({ onCheckinScan }: Props) {
   const scannerRef = useRef<any>(null);
-  const stepRef = useRef(step);
-  const onBookingScanRef = useRef(onBookingScan);
-  const onCardScanRef = useRef(onCardScan);
+  const onCheckinScanRef = useRef(onCheckinScan);
   const processingRef = useRef(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Menyiapkan kamera...");
 
   useEffect(() => {
-    stepRef.current = step;
-    onBookingScanRef.current = onBookingScan;
-    onCardScanRef.current = onCardScan;
+    onCheckinScanRef.current = onCheckinScan;
     setError("");
-    setStatus(step === "card" ? "Langkah 1: arahkan QR kartu Mobile JKN ke kamera" : "Langkah 2: arahkan QR kode booking ke kamera");
-  }, [step]);
+    setStatus("Arahkan QR check-in Mobile JKN ke kamera");
+  }, [onCheckinScan]);
 
   useEffect(() => {
     let disposed = false;
@@ -111,26 +105,15 @@ export function BpjsCameraScanner({ step, onBookingScan, onCardScan }: Props) {
             if (processingRef.current) return;
             processingRef.current = true;
 
-            if (stepRef.current === "booking") {
-              const bookingCode = bookingCodeFromScan(decodedText);
-              if (!bookingCode) {
-                setError("QR tidak memuat kode booking yang valid.");
-                processingRef.current = false;
-                return;
-              }
-              onBookingScanRef.current(bookingCode);
-              setStatus("Data lengkap. Tekan Check-in.");
-              void stop();
-            } else {
-              const cardNumber = cardNumberFromScan(decodedText);
-              if (!cardNumber) {
-                setError("QR bukan kartu Mobile JKN yang valid.");
-                processingRef.current = false;
-                return;
-              }
-              onCardScanRef.current(cardNumber);
-              setStatus("Kartu terbaca. Scan QR kode booking.");
+            const checkinData = checkinDataFromScan(decodedText);
+            if (!checkinData) {
+              setError("QR check-in tidak memuat data pasien dan antrean yang lengkap.");
+              processingRef.current = false;
+              return;
             }
+            onCheckinScanRef.current(checkinData);
+            setStatus("Data kartu dan booking terbaca. Tekan Check-in.");
+            void stop();
 
             window.setTimeout(() => {
               processingRef.current = false;
@@ -182,11 +165,9 @@ export function BpjsCameraScanner({ step, onBookingScan, onCardScan }: Props) {
       </div>
       <div className="bg-white p-3 text-center">
         {status && <p className="font-semibold text-blue-800">{status}</p>}
-        {step === "card" && (
-          <p className="mt-1 text-sm text-slate-600">
-            Buka QR kartu pada Mobile JKN, lalu posisikan seluruh QR di dalam kotak hijau.
-          </p>
-        )}
+        <p className="mt-1 text-sm text-slate-600">
+          Buka QR check-in Mobile JKN, lalu posisikan seluruh QR di dalam kotak hijau.
+        </p>
         {error && <p role="alert" className="mt-1 text-sm text-red-700">{error}</p>}
       </div>
     </div>

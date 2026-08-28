@@ -16,7 +16,12 @@ import {
   updatePoliService,
 } from "~/server/functions/visits";
 import { verifyToken } from "~/server/functions/auth";
-import { getBarcodeEnabled, setBarcodeEnabled } from "~/server/functions/settings";
+import {
+  getBarcodeEnabled,
+  getFristaBypassEnabled,
+  setBarcodeEnabled,
+  setFristaBypassEnabled,
+} from "~/server/functions/settings";
 import type { VisitStatus } from "~/server/schema";
 
 // ─── Server functions ─────────────────────────────────────────────────────────
@@ -32,7 +37,7 @@ const getDashboardDataAction = createServerFn({ method: "GET" })
       status: (data.status as VisitStatus) || undefined,
       serviceCode: data.serviceCode || undefined,
     };
-    const [visits, totalVisits, stats, services, barcodeEnabled] = await Promise.all([
+    const [visits, totalVisits, stats, services, barcodeEnabled, fristaBypassEnabled] = await Promise.all([
       listVisits({
         ...filters,
         limit: pageSize,
@@ -42,6 +47,7 @@ const getDashboardDataAction = createServerFn({ method: "GET" })
       getDailyStats(),
       getAdminServices(),
       getBarcodeEnabled(),
+      getFristaBypassEnabled(),
     ]);
     return {
       visits,
@@ -51,6 +57,7 @@ const getDashboardDataAction = createServerFn({ method: "GET" })
       stats,
       services,
       barcodeEnabled,
+      fristaBypassEnabled,
       admin: { username: payload.username, role: payload.role },
     };
   });
@@ -79,6 +86,15 @@ const updateBarcodeSettingAction = createServerFn({ method: "POST" })
     const payload = verifyToken(data.token);
     if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
     await setBarcodeEnabled(data.enabled);
+    return { ok: true };
+  });
+
+const updateFristaBypassSettingAction = createServerFn({ method: "POST" })
+  .validator((d: { token: string; enabled: boolean }) => d)
+  .handler(async ({ data }) => {
+    const payload = verifyToken(data.token);
+    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
+    await setFristaBypassEnabled(data.enabled);
     return { ok: true };
   });
 
@@ -112,6 +128,42 @@ export const Route = createFileRoute("/admin/dashboard")({
   component: DashboardPage,
 });
 
+function SettingSwitch({
+  checked,
+  disabled,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={`${label}: ${checked ? "Aktif" : "Nonaktif"}`}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="flex shrink-0 items-center gap-3 rounded-full p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+    >
+      <span
+        aria-hidden="true"
+        className={`relative h-8 w-14 rounded-full transition-colors ${checked ? "bg-green-600" : "bg-gray-300"}`}
+      >
+        <span
+          className={`absolute left-0 top-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-7" : "translate-x-1"}`}
+        />
+      </span>
+      <span className={`min-w-16 text-left text-sm font-semibold ${checked ? "text-green-700" : "text-gray-600"}`}>
+        {checked ? "Aktif" : "Nonaktif"}
+      </span>
+    </button>
+  );
+}
+
 function DashboardPage() {
   const navigate = useNavigate();
   const [token, setToken] = useState<string>("");
@@ -127,6 +179,7 @@ function DashboardPage() {
   const [savingPoli, setSavingPoli] = useState(false);
   const [poliModalOpen, setPoliModalOpen] = useState(false);
   const [savingBarcode, setSavingBarcode] = useState(false);
+  const [savingFristaBypass, setSavingFristaBypass] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -214,6 +267,17 @@ function DashboardPage() {
     }
   }
 
+  async function handleFristaBypassSetting(enabled: boolean) {
+    if (!token) return;
+    setSavingFristaBypass(true);
+    try {
+      await updateFristaBypassSettingAction({ data: { token, enabled } });
+      await fetchData(token, statusFilter, serviceFilter, page);
+    } finally {
+      setSavingFristaBypass(false);
+    }
+  }
+
   async function handleServe(visitId: string) {
     if (!token) return;
     setLoadingVisit(visitId);
@@ -297,14 +361,27 @@ function DashboardPage() {
                   Jika nonaktif, kiosk hanya menampilkan dan mencetak karcis antrean.
                 </p>
               </div>
-              <Button
-                type="button"
-                variant={data.barcodeEnabled ? "success" : "outline"}
+              <SettingSwitch
+                checked={data.barcodeEnabled}
                 disabled={savingBarcode}
-                onClick={() => handleBarcodeSetting(!data.barcodeEnabled)}
-              >
-                {data.barcodeEnabled ? "Aktif" : "Nonaktif"}
-              </Button>
+                label="Fitur barcode / QR"
+                onChange={handleBarcodeSetting}
+              />
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <div>
+                <p className="font-medium text-amber-900">Bypass check-in FKTL ke Frista</p>
+                <p className="text-sm text-amber-700">
+                  Mode pengujian: validasi FKTL tetap berjalan; jika gagal, proses tetap lanjut ke Frista dan pencetakan.
+                </p>
+              </div>
+              <SettingSwitch
+                checked={data.fristaBypassEnabled}
+                disabled={savingFristaBypass}
+                label="Bypass check-in FKTL ke Frista"
+                onChange={handleFristaBypassSetting}
+              />
             </div>
 
             <h3 className="mt-7 font-semibold text-gray-800">Pengaturan Poli</h3>

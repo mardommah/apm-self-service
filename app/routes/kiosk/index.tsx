@@ -3,9 +3,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { setCookie } from "@tanstack/start-server-core";
 import { useRef, useState } from "react";
 import { ServiceCard } from "~/components/kiosk/ServiceCard";
-import { BpjsCameraScanner } from "~/components/kiosk/BpjsCameraScanner";
+import {
+  BpjsCameraScanner,
+  type BpjsCheckinQrData,
+} from "~/components/kiosk/BpjsCameraScanner";
 import { TouchKeyboard } from "~/components/kiosk/TouchKeyboard";
+import { printBpjsCheckin } from "~/lib/print";
 import { checkInBpjsBooking } from "~/server/functions/bpjs";
+import { getFristaBypassEnabled } from "~/server/functions/settings";
 import { getAllServices, createVisit } from "~/server/functions/visits";
 import type { Service } from "~/server/schema";
 
@@ -13,10 +18,11 @@ import type { Service } from "~/server/schema";
 type CreateVisitResult = Awaited<ReturnType<typeof createVisit>>;
 type FristaJob = { agentUrl: string; token: string };
 type CheckinResult =
-  | { ok: true; message: string; fristaJob: FristaJob }
+  | { ok: true; message: string; fristaJob: FristaJob; validationPassed: boolean }
   | { ok: false; message: string };
 type KioskData = {
   services: Service[];
+  fristaBypassEnabled: boolean;
 };
 type KioskActionInput =
   | { action: "services" }
@@ -32,12 +38,21 @@ const kioskAction = createServerFn({ method: "POST" })
   .validator((data: KioskActionInput) => data)
   .handler(async ({ data }) => {
     if (data.action === "services") {
-      return { services: await getAllServices() } satisfies KioskData;
+      const [services, fristaBypassEnabled] = await Promise.all([
+        getAllServices(),
+        getFristaBypassEnabled(),
+      ]);
+      return { services, fristaBypassEnabled } satisfies KioskData;
     }
     if (data.action === "checkin") {
       try {
         const result = await checkInBpjsBooking(data.bookingCode, data.cardNumber);
-        return { ok: true as const, message: result.message, fristaJob: result.fristaJob };
+        return {
+          ok: true as const,
+          message: result.message,
+          fristaJob: result.fristaJob,
+          validationPassed: result.validationPassed,
+        };
       } catch (error) {
         const code = error instanceof Error ? error.message : "BPJS_FKTL_REQUEST_FAILED";
         const knownMessages: Record<string, string> = {
@@ -92,7 +107,7 @@ export const Route = createFileRoute("/kiosk/")({
 });
 
 function KioskPage() {
-  const { services } = Route.useLoaderData() as KioskData;
+  const { services, fristaBypassEnabled } = Route.useLoaderData() as KioskData;
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
@@ -104,13 +119,22 @@ function KioskPage() {
   const [cameraScannerOpen, setCameraScannerOpen] = useState(false);
   const [checkinMessage, setCheckinMessage] = useState("");
   const [fristaJob, setFristaJob] = useState<FristaJob | null>(null);
+  const [fristaProcessing, setFristaProcessing] = useState(false);
+  const [fristaValidationPassed, setFristaValidationPassed] = useState(true);
+  const [checkinQrData, setCheckinQrData] = useState<BpjsCheckinQrData | null>(null);
   const bookingInputRef = useRef<HTMLInputElement>(null);
   const bpjsCardInputRef = useRef<HTMLInputElement>(null);
 
   function closeBookingModal() {
     setBookingOpen(false);
     setCameraScannerOpen(false);
+    setBookingNumber("");
+    setBpjsCardNumber("");
+    setActiveCheckinInput("card");
     setFristaJob(null);
+    setFristaValidationPassed(true);
+    setCheckinQrData(null);
+    setFristaProcessing(false);
     setError("");
   }
 
@@ -140,11 +164,20 @@ function KioskPage() {
       bookingInputRef.current?.focus();
       return;
     }
+    if (
+      !checkinQrData ||
+      checkinQrData.bookingCode !== booking ||
+      checkinQrData.cardNumber !== bpjsCardNumber
+    ) {
+      setError("Scan QR check-in agar data bukti cetak tersedia dan sesuai.");
+      return;
+    }
     setLoading(true);
     setError("");
     setCheckinMessage("");
     try {
       let job = fristaJob;
+      let validationPassed = fristaValidationPassed;
       if (!job) {
         const result = await checkinAction(booking, bpjsCardNumber);
         if (!result.ok) {
@@ -152,11 +185,14 @@ function KioskPage() {
           return;
         }
         job = result.fristaJob;
+        validationPassed = result.validationPassed;
+        setFristaValidationPassed(result.validationPassed);
         setFristaJob(job);
         setCameraScannerOpen(false);
         setCheckinMessage("Check-in berhasil. Membuka Frista...");
       }
 
+      setFristaProcessing(true);
       const response = await fetch(`${job.agentUrl}/jobs/frista`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -164,14 +200,26 @@ function KioskPage() {
       }).catch(() => {
         throw new Error("FRISTA_AGENT_FAILED");
       });
-      if (!response.ok) {
+      if (!response.ok && !fristaBypassEnabled) {
         throw new Error("FRISTA_AGENT_FAILED");
       }
+      if (!checkinQrData) {
+        throw new Error("CHECKIN_PRINT_DATA_MISSING");
+      }
+      printBpjsCheckin(checkinQrData);
       setBookingOpen(false);
       setBookingNumber("");
       setBpjsCardNumber("");
+      setActiveCheckinInput("card");
+      setCameraScannerOpen(false);
       setFristaJob(null);
-      setCheckinMessage("Check-in berhasil. Frista telah dibuka; selesaikan verifikasi wajah pada kamera kiosk.");
+      setFristaValidationPassed(true);
+      setCheckinQrData(null);
+      setCheckinMessage(
+        validationPassed && response.ok
+          ? "Proses Frista selesai. Bukti check-in telah dikirim ke printer."
+          : "Mode dev: validasi atau Frista berstatus gagal. Bukti QR tetap dikirim ke printer.",
+      );
     } catch (cause) {
       setError(
         cause instanceof Error && cause.message === "FRISTA_AGENT_FAILED"
@@ -179,6 +227,7 @@ function KioskPage() {
           : "Layanan check-in BPJS tidak dapat dihubungi.",
       );
     } finally {
+      setFristaProcessing(false);
       setLoading(false);
     }
   }
@@ -215,6 +264,30 @@ function KioskPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 max-w-5xl mx-auto w-full gap-6">
+        {fristaProcessing && (
+          <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/70 p-6 backdrop-blur-sm">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="frista-processing-title"
+              className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl"
+            >
+              <div
+                aria-hidden="true"
+                className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-blue-100 border-t-blue-700"
+              />
+              <h2 id="frista-processing-title" className="mt-5 text-2xl font-bold text-gray-900">
+                Proses Frista Berjalan
+              </h2>
+              <p className="mt-3 text-gray-600">
+                Selesaikan verifikasi biometrik pada aplikasi Frista. Jangan tutup atau muat ulang halaman ini.
+              </p>
+              <p className="mt-4 rounded-xl bg-blue-50 p-3 text-sm font-semibold text-blue-800">
+                Bukti check-in dicetak otomatis setelah proses selesai.
+              </p>
+            </section>
+          </div>
+        )}
         {patientTypeOpen && (
           <div
             className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-6 backdrop-blur-sm"
@@ -290,7 +363,11 @@ function KioskPage() {
                 ×
               </button>
               <h2 className="pr-14 text-2xl font-bold text-gray-900">Check-in BPJS</h2>
-              <p className="mt-2 text-gray-500">Langkah 1 scan kartu BPJS. Langkah 2 scan QR kode booking. Input manual tetap tersedia.</p>
+              <p className="mt-2 text-gray-500">
+                {fristaBypassEnabled
+                  ? "Mode uji Frista aktif. Validasi FKTL tetap dijalankan; kegagalan tidak menghentikan Frista dan pencetakan."
+                  : "Scan satu QR check-in Mobile JKN untuk mengisi nomor kartu dan kode booking. Input manual tetap tersedia."}
+              </p>
               <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
                 <section aria-label="Kamera pemindai QR">
                   <button
@@ -302,13 +379,12 @@ function KioskPage() {
                   </button>
                   {cameraScannerOpen && (
                     <BpjsCameraScanner
-                      step={bpjsCardNumber ? "booking" : "card"}
-                      onBookingScan={(bookingCode) => {
+                      onCheckinScan={(data) => {
+                        const { bookingCode, cardNumber } = data;
                         setBookingNumber(bookingCode);
-                        setCameraScannerOpen(false);
-                      }}
-                      onCardScan={(cardNumber) => {
                         setBpjsCardNumber(cardNumber);
+                        setCheckinQrData(data);
+                        setCameraScannerOpen(false);
                         setActiveCheckinInput("booking");
                         bookingInputRef.current?.focus();
                       }}
@@ -317,7 +393,11 @@ function KioskPage() {
                   {!cameraScannerOpen && (
                     <TouchKeyboard
                       value={activeCheckinInput === "booking" ? bookingNumber : bpjsCardNumber}
-                      onChange={activeCheckinInput === "booking" ? setBookingNumber : setBpjsCardNumber}
+                      onChange={(value) => {
+                        setCheckinQrData(null);
+                        if (activeCheckinInput === "booking") setBookingNumber(value);
+                        else setBpjsCardNumber(value);
+                      }}
                       maxLength={activeCheckinInput === "booking" ? 100 : 13}
                       mode={activeCheckinInput === "booking" ? "alphanumeric" : "numeric"}
                       disabled={loading}
@@ -331,7 +411,10 @@ function KioskPage() {
                   autoFocus
                   ref={bpjsCardInputRef}
                   value={bpjsCardNumber}
-                  onChange={(event) => setBpjsCardNumber(event.target.value.replace(/\D/g, ""))}
+                  onChange={(event) => {
+                    setCheckinQrData(null);
+                    setBpjsCardNumber(event.target.value.replace(/\D/g, ""));
+                  }}
                   onFocus={() => setActiveCheckinInput("card")}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && /^\d{13}$/.test(bpjsCardNumber)) {
@@ -354,7 +437,10 @@ function KioskPage() {
                 <input
                   ref={bookingInputRef}
                   value={bookingNumber}
-                  onChange={(event) => setBookingNumber(event.target.value)}
+                  onChange={(event) => {
+                    setCheckinQrData(null);
+                    setBookingNumber(event.target.value);
+                  }}
                   onFocus={() => setActiveCheckinInput("booking")}
                   autoComplete="off"
                   inputMode="none"
@@ -364,6 +450,11 @@ function KioskPage() {
                   placeholder="Contoh: ABC12345"
                 />
               </label>
+              {fristaBypassEnabled && (
+                <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                  Pengujian aktif: kegagalan validasi FKTL tidak menghentikan Frista. Bukti QR tetap dicetak setelah agent merespons.
+                </div>
+              )}
               {error && (
                 <div
                   role="alert"

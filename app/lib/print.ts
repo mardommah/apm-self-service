@@ -20,6 +20,68 @@ export async function printTicket(data: PrintData): Promise<void> {
   browserPrint(data);
 }
 
+export interface BpjsCheckinPrintData {
+  bookingCode: string;
+  cardNumber: string;
+  referralNumber: string;
+  medicalRecordNumber: string;
+  doctorName: string;
+  queueNumber: string;
+}
+
+/** Print proof only after the Frista agent confirms the process has finished. */
+export function printBpjsCheckin(data: BpjsCheckinPrintData): void {
+  const escapeHtml = (value: string) =>
+    value.replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    })[character]!);
+  const rows = [
+    ["Kode booking", data.bookingCode],
+    ["Nomor kartu", data.cardNumber],
+    ["Nomor rujukan", data.referralNumber],
+    ["Nomor RM", data.medicalRecordNumber],
+    ["Dokter", data.doctorName],
+    ["Nomor antrean", data.queueNumber],
+  ];
+  const frame = document.createElement("iframe");
+  frame.hidden = true;
+  frame.setAttribute("title", "Cetak bukti check-in BPJS");
+  document.body.appendChild(frame);
+  const documentToPrint = frame.contentDocument;
+  if (!documentToPrint) {
+    frame.remove();
+    throw new Error("PRINT_UNAVAILABLE");
+  }
+  documentToPrint.open();
+  documentToPrint.write(`<!doctype html>
+    <html lang="id"><head><meta charset="UTF-8"><title>Bukti Check-in BPJS</title>
+    <style>
+      @page { size: 80mm auto; margin: 5mm; }
+      body { width: 70mm; margin: 0; font: 12px monospace; color: #000; }
+      h1, p { margin: 0; text-align: center; }
+      h1 { font-size: 16px; }
+      .divider { border-top: 1px dashed #000; margin: 8px 0; }
+      .row { margin: 6px 0; }
+      .label { display: block; color: #555; }
+      .value { display: block; font-weight: bold; overflow-wrap: anywhere; }
+      .queue { font-size: 20px; text-align: center; }
+    </style></head><body>
+      <h1>Klinik Syamsinar Maros</h1><p>Bukti Check-in BPJS</p><div class="divider"></div>
+      ${rows.map(([label, value], index) => `<div class="row${index === rows.length - 1 ? " queue" : ""}"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span></div>`).join("")}
+      <div class="divider"></div><p>Proses Frista selesai</p>
+    </body></html>`);
+  documentToPrint.close();
+  window.setTimeout(() => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    window.setTimeout(() => frame.remove(), 1_000);
+  }, 200);
+}
+
 async function tryApmPrint(data: PrintData): Promise<boolean> {
   try {
     // APM SDK is expected to be available as window.APMPrinter

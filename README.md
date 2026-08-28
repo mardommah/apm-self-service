@@ -1,5 +1,7 @@
 # apm-self-service
 
+Dokumentasi alur check-in BPJS, QR Mobile JKN, Frista, mode pengujian, dan pencetakan tersedia di [docs/BPJS-FRISTA-CHECKIN.md](docs/BPJS-FRISTA-CHECKIN.md).
+
 To install dependencies:
 
 ```bash

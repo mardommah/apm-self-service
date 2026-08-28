@@ -4,6 +4,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "../db";
 import { bpjsWorkflows, services, visits } from "../schema";
+import { getFristaBypassEnabled } from "./settings";
 
 export type PatientIdentity = {
   cardNumber: string;
@@ -124,6 +125,7 @@ function createSignedFristaJob(jobId: string, cardNumber: string) {
 
 export async function checkInBpjsBooking(bookingCode: string, cardNumber: string) {
   const normalizedBookingCode = bookingCode.trim();
+  const fristaBypassEnabled = await getFristaBypassEnabled();
   if (!normalizedBookingCode || normalizedBookingCode.length > 100) {
     throw new Error("BOOKING_CODE_INVALID");
   }
@@ -132,8 +134,8 @@ export async function checkInBpjsBooking(bookingCode: string, cardNumber: string
     cardNumber,
   );
 
-  const { baseUrl, username, password, timeout } = bpjsFktlConfig();
   try {
+    const { baseUrl, username, password, timeout } = bpjsFktlConfig();
     const authResponse = await fetch(`${baseUrl}/auth`, {
       method: "GET",
       headers: {
@@ -162,8 +164,15 @@ export async function checkInBpjsBooking(bookingCode: string, cardNumber: string
       signal: AbortSignal.timeout(timeout),
     });
     const result = await parseFktlResponse(checkInResponse);
-    return { message: result.metadata?.message || "Ok", fristaJob };
+    return { message: result.metadata?.message || "Ok", fristaJob, validationPassed: true };
   } catch (error) {
+    if (fristaBypassEnabled) {
+      return {
+        message: "Validasi FKTL gagal. Mode dev aktif; proses dilanjutkan ke Frista.",
+        fristaJob,
+        validationPassed: false,
+      };
+    }
     if (error instanceof Error && error.message.startsWith("BPJS_FKTL_")) throw error;
     if (error instanceof TypeError || (error instanceof Error && error.name === "TimeoutError")) {
       throw new Error("BPJS_FKTL_UNAVAILABLE");

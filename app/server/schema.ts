@@ -35,6 +35,7 @@ export const admins = mysqlTable("admins", {
 export const appSettings = mysqlTable("app_settings", {
   id: int("id").primaryKey(),
   barcodeEnabled: boolean("barcode_enabled").default(false).notNull(),
+  fristaBypassEnabled: boolean("frista_bypass_enabled").default(false).notNull(),
   updatedAt: datetime("updated_at").default(new Date()).notNull(),
 });
 

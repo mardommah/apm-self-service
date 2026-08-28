@@ -23,3 +23,21 @@ export async function setBarcodeEnabled(barcodeEnabled: boolean) {
       set: { barcodeEnabled, updatedAt: new Date() },
     });
 }
+
+export async function getFristaBypassEnabled() {
+  const [settings] = await getDb()
+    .select({ fristaBypassEnabled: appSettings.fristaBypassEnabled })
+    .from(appSettings)
+    .where(eq(appSettings.id, SETTINGS_ID))
+    .limit(1);
+  return settings?.fristaBypassEnabled ?? false;
+}
+
+export async function setFristaBypassEnabled(fristaBypassEnabled: boolean) {
+  await getDb()
+    .insert(appSettings)
+    .values({ id: SETTINGS_ID, fristaBypassEnabled, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({
+      set: { fristaBypassEnabled, updatedAt: new Date() },
+    });
+}
