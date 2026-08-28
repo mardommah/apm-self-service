@@ -4,6 +4,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "../db";
 import { bpjsWorkflows, services, visits } from "../schema";
+import { findTodaySimrsBooking } from "../simrs";
 import { getFristaBypassEnabled } from "./settings";
 
 export type PatientIdentity = {
@@ -123,12 +124,20 @@ function createSignedFristaJob(jobId: string, cardNumber: string) {
   return { agentUrl, token: `${encoded}.${signature}` };
 }
 
-export async function checkInBpjsBooking(bookingCode: string, cardNumber: string) {
+export async function checkInBpjsBooking(
+  bookingCode: string,
+  cardNumber: string,
+  source: "manual" | "qr" = "manual",
+) {
   const normalizedBookingCode = bookingCode.trim();
   const fristaBypassEnabled = await getFristaBypassEnabled();
   if (!normalizedBookingCode || normalizedBookingCode.length > 100) {
     throw new Error("BOOKING_CODE_INVALID");
   }
+  if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
+  const bookingData = source === "manual"
+    ? await findTodaySimrsBooking(normalizedBookingCode, cardNumber)
+    : null;
   const fristaJob = createSignedFristaJob(
     `booking:${sha256(normalizedBookingCode).slice(0, 26)}`,
     cardNumber,
@@ -164,13 +173,14 @@ export async function checkInBpjsBooking(bookingCode: string, cardNumber: string
       signal: AbortSignal.timeout(timeout),
     });
     const result = await parseFktlResponse(checkInResponse);
-    return { message: result.metadata?.message || "Ok", fristaJob, validationPassed: true };
+    return { message: result.metadata?.message || "Ok", fristaJob, validationPassed: true, bookingData };
   } catch (error) {
     if (fristaBypassEnabled) {
       return {
         message: "Validasi FKTL gagal. Mode dev aktif; proses dilanjutkan ke Frista.",
         fristaJob,
         validationPassed: false,
+        bookingData,
       };
     }
     if (error instanceof Error && error.message.startsWith("BPJS_FKTL_")) throw error;

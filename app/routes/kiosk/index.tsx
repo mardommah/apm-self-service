@@ -18,7 +18,13 @@ import type { Service } from "~/server/schema";
 type CreateVisitResult = Awaited<ReturnType<typeof createVisit>>;
 type FristaJob = { agentUrl: string; token: string };
 type CheckinResult =
-  | { ok: true; message: string; fristaJob: FristaJob; validationPassed: boolean }
+  | {
+      ok: true;
+      message: string;
+      fristaJob: FristaJob;
+      validationPassed: boolean;
+      bookingData: BpjsCheckinQrData | null;
+    }
   | { ok: false; message: string };
 type KioskData = {
   services: Service[];
@@ -27,7 +33,7 @@ type KioskData = {
 };
 type KioskActionInput =
   | { action: "services" }
-  | { action: "checkin"; bookingCode: string; cardNumber: string }
+  | { action: "checkin"; bookingCode: string; cardNumber: string; source: "manual" | "qr" }
   | {
       action: "create";
       serviceCode: string;
@@ -52,12 +58,13 @@ const kioskAction = createServerFn({ method: "POST" })
     }
     if (data.action === "checkin") {
       try {
-        const result = await checkInBpjsBooking(data.bookingCode, data.cardNumber);
+        const result = await checkInBpjsBooking(data.bookingCode, data.cardNumber, data.source);
         return {
           ok: true as const,
           message: result.message,
           fristaJob: result.fristaJob,
           validationPassed: result.validationPassed,
+          bookingData: result.bookingData,
         };
       } catch (error) {
         const code = error instanceof Error ? error.message : "BPJS_FKTL_REQUEST_FAILED";
@@ -69,6 +76,9 @@ const kioskAction = createServerFn({ method: "POST" })
           BOOKING_CODE_INVALID: "Nomor booking tidak valid.",
           BPJS_CARD_INVALID: "Nomor kartu BPJS harus tepat 13 digit.",
           FRISTA_AGENT_NOT_CONFIGURED: "Agent Frista belum dikonfigurasi pada kiosk.",
+          SIMRS_NOT_CONFIGURED: "Koneksi database SIM RS belum dikonfigurasi.",
+          SIMRS_UNAVAILABLE: "Database SIM RS tidak dapat dihubungi.",
+          SIMRS_BOOKING_NOT_FOUND: "Booking hari ini tidak ditemukan untuk nomor kartu tersebut.",
         };
         return {
           ok: false as const,
@@ -104,8 +114,8 @@ const createVisitAction = (
   kioskAction({
     data: { action: "create", serviceCode, ...registration },
   }) as Promise<CreateVisitResult>;
-const checkinAction = (bookingCode: string, cardNumber: string) =>
-  kioskAction({ data: { action: "checkin", bookingCode, cardNumber } }) as Promise<CheckinResult>;
+const checkinAction = (bookingCode: string, cardNumber: string, source: "manual" | "qr") =>
+  kioskAction({ data: { action: "checkin", bookingCode, cardNumber, source } }) as Promise<CheckinResult>;
 
 export const Route = createFileRoute("/kiosk/")({
   loader: (): Promise<KioskData> => getServicesAction(),
@@ -191,17 +201,21 @@ function KioskPage() {
     setLoading(true);
     setError("");
     setCheckinMessage("");
+    const source = checkinQrData ? "qr" : "manual";
+    let printData = checkinQrData;
     try {
       let job = fristaJob;
       let validationPassed = fristaValidationPassed;
       if (!job) {
-        const result = await checkinAction(booking, bpjsCardNumber);
+        const result = await checkinAction(booking, bpjsCardNumber, source);
         if (!result.ok) {
           setError(result.message);
           return;
         }
         job = result.fristaJob;
         validationPassed = result.validationPassed;
+        printData = result.bookingData ?? printData;
+        if (result.bookingData) setCheckinQrData(result.bookingData);
         setFristaValidationPassed(result.validationPassed);
         setFristaJob(job);
         setCameraScannerOpen(false);
@@ -219,7 +233,7 @@ function KioskPage() {
       if (!response.ok && !fristaBypassEnabled) {
         throw new Error("FRISTA_AGENT_FAILED");
       }
-      if (checkinQrData) printBpjsCheckin(checkinQrData);
+      if (printData) printBpjsCheckin(printData);
       setBookingOpen(false);
       setBookingNumber("");
       setBpjsCardNumber("");
@@ -229,7 +243,7 @@ function KioskPage() {
       setFristaValidationPassed(true);
       setCheckinQrData(null);
       setCheckinMessage(
-        checkinQrData
+        printData
           ? validationPassed && response.ok
             ? "Proses Frista selesai. Bukti check-in telah dikirim ke printer."
             : "Mode dev: validasi atau Frista berstatus gagal. Bukti QR tetap dikirim ke printer."
