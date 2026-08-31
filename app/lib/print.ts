@@ -25,7 +25,7 @@ export interface BpjsCheckinPrintData {
   cardNumber: string;
   referralNumber: string;
   medicalRecordNumber: string;
-  doctorName: string;
+  clinicName: string;
   queueNumber: string;
 }
 
@@ -44,7 +44,7 @@ export function printBpjsCheckin(data: BpjsCheckinPrintData): void {
     ["Nomor kartu", data.cardNumber],
     ["Nomor rujukan", data.referralNumber],
     ["Nomor RM", data.medicalRecordNumber],
-    ["Dokter", data.doctorName],
+    ["Poli tujuan", data.clinicName],
     ["Nomor antrean", data.queueNumber],
   ];
   const frame = document.createElement("iframe");

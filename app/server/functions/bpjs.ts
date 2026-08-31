@@ -124,6 +124,18 @@ function createSignedFristaJob(jobId: string, cardNumber: string) {
   return { agentUrl, token: `${encoded}.${signature}` };
 }
 
+export async function lookupBpjsBooking(cardNumber: string, scannedBookingCode?: string) {
+  if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
+  try {
+    return await findTodaySimrsBookingByCard(cardNumber, scannedBookingCode?.trim());
+  } catch (error) {
+    if (scannedBookingCode && error instanceof Error && error.message === "SIMRS_BOOKING_NOT_FOUND") {
+      throw new Error("SIMRS_BOOKING_MISMATCH");
+    }
+    throw error;
+  }
+}
+
 export async function checkInBpjsBooking(
   bookingCode: string,
   cardNumber: string,
@@ -131,12 +143,14 @@ export async function checkInBpjsBooking(
 ) {
   const fristaBypassEnabled = await getFristaBypassEnabled();
   if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
-  const bookingData = source === "manual"
-    ? await findTodaySimrsBookingByCard(cardNumber)
-    : null;
-  const normalizedBookingCode = source === "manual"
-    ? bookingData!.bookingCode
-    : bookingCode.trim();
+  const bookingData = await lookupBpjsBooking(
+    cardNumber,
+    source === "qr" ? bookingCode : undefined,
+  );
+  if (bookingData.status.trim().toLowerCase() !== "belum") {
+    throw new Error("SIMRS_BOOKING_NOT_AVAILABLE");
+  }
+  const normalizedBookingCode = bookingData.bookingCode;
   if (!normalizedBookingCode || normalizedBookingCode.length > 100) {
     throw new Error("BOOKING_CODE_INVALID");
   }

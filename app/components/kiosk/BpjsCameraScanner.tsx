@@ -5,7 +5,7 @@ export type BpjsCheckinQrData = {
   cardNumber: string;
   referralNumber: string;
   medicalRecordNumber: string;
-  doctorName: string;
+  clinicName: string;
   queueNumber: string;
 };
 
@@ -40,13 +40,13 @@ function checkinDataFromScan(decodedText: string) {
     const cardValue = parsed.nokapst ?? parsed.nomorKartu ?? parsed.nomorkartu ?? parsed.noKartu;
     const referralValue = parsed.noRujukan;
     const medicalRecordValue = parsed.norm;
-    const doctorValue = parsed.namaDokter;
+    const clinicValue = parsed.namaPoli ?? parsed.namapoli ?? parsed.poliTujuan;
     const queueValue = parsed.nomorAntrean;
     const bookingCode = typeof bookingValue === "string" ? bookingValue.trim() : "";
     const cardNumber = typeof cardValue === "string" ? cardValue.trim() : "";
     const referralNumber = typeof referralValue === "string" ? referralValue.trim() : "";
     const medicalRecordNumber = typeof medicalRecordValue === "string" ? medicalRecordValue.trim() : "";
-    const doctorName = typeof doctorValue === "string" ? doctorValue.trim() : "";
+    const clinicName = typeof clinicValue === "string" ? clinicValue.trim() : "";
     const queueNumber = typeof queueValue === "string" ? queueValue.trim().replace(/\s+/g, " ") : "";
     if (
       bookingCode &&
@@ -54,10 +54,10 @@ function checkinDataFromScan(decodedText: string) {
       /^\d{13}$/.test(cardNumber) &&
       referralNumber &&
       medicalRecordNumber &&
-      doctorName &&
+      clinicName &&
       queueNumber
     ) {
-      return { bookingCode, cardNumber, referralNumber, medicalRecordNumber, doctorName, queueNumber };
+      return { bookingCode, cardNumber, referralNumber, medicalRecordNumber, clinicName, queueNumber };
     }
   }
   return null;

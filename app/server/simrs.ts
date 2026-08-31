@@ -5,8 +5,10 @@ export type SimrsBooking = {
   cardNumber: string;
   referralNumber: string;
   medicalRecordNumber: string;
-  doctorName: string;
+  clinicName: string;
   queueNumber: string;
+  patientName: string;
+  status: string;
 };
 
 type SimrsBookingRow = RowDataPacket & {
@@ -14,8 +16,10 @@ type SimrsBookingRow = RowDataPacket & {
   nomorkartu: string;
   nomorreferensi: string;
   norm: string;
-  nama_dokter: string;
+  nama_poli: string;
   nomorantrean: string;
+  nama_pasien: string;
+  status: string;
 };
 
 let pool: mysql.Pool | null = null;
@@ -43,7 +47,7 @@ function getSimrsPool() {
   return pool;
 }
 
-export async function findTodaySimrsBookingByCard(cardNumber: string) {
+export async function findTodaySimrsBookingByCard(cardNumber: string, bookingCode?: string) {
   let rows: SimrsBookingRow[];
   try {
     [rows] = await getSimrsPool().execute<SimrsBookingRow[]>(
@@ -52,14 +56,17 @@ export async function findTodaySimrsBookingByCard(cardNumber: string) {
         r.nomorkartu,
         r.nomorreferensi,
         r.norm,
-        COALESCE(d.nm_dokter, r.kodedokter, '') AS nama_dokter,
-        r.nomorantrean
+        COALESCE(r.namapoli, r.kodepoli, '') AS nama_poli,
+        r.nomorantrean,
+        COALESCE(NULLIF(p.nm_pasien, ''), r.norm) AS nama_pasien,
+        COALESCE(r.status, '') AS status
       FROM referensi_mobilejkn_bpjs r
-      LEFT JOIN dokter d ON d.kd_dokter = r.kodedokter
+      LEFT JOIN pasien p ON p.no_rkm_medis = r.norm
       WHERE r.tanggalperiksa = CURRENT_DATE()
         AND r.nomorkartu = ?
+        AND (? IS NULL OR r.nobooking = ?)
       LIMIT 1`,
-      [cardNumber],
+      [cardNumber, bookingCode ?? null, bookingCode ?? null],
     );
   } catch (error) {
     if (error instanceof Error && error.message === "SIMRS_NOT_CONFIGURED") throw error;
@@ -72,7 +79,9 @@ export async function findTodaySimrsBookingByCard(cardNumber: string) {
     cardNumber: booking.nomorkartu,
     referralNumber: booking.nomorreferensi,
     medicalRecordNumber: booking.norm,
-    doctorName: booking.nama_dokter,
+    clinicName: booking.nama_poli,
     queueNumber: booking.nomorantrean,
+    patientName: booking.nama_pasien,
+    status: booking.status,
   } satisfies SimrsBooking;
 }

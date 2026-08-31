@@ -30,7 +30,7 @@ QR berisi JSON yang dikodekan sebagai Base64. Contoh struktur setelah didekode:
   "ketKunjungan": "Kontrol",
   "namaFaskesAsalRujuk": null,
   "namaPoli": "MATA",
-  "namaDokter": "dr. FITRI ANNUR CHIKMAH",
+  "namaPoli": "Poli Penyakit Dalam",
   "nomorAntrean": "PM -011"
 }
 ```
@@ -43,7 +43,7 @@ Pemetaan field yang digunakan:
 | `kodeBooking` | Kode booking untuk validasi FKTL |
 | `noRujukan` | Dicetak pada bukti |
 | `norm` | Dicetak sebagai nomor rekam medis |
-| `namaDokter` | Dicetak pada bukti |
+| `namaPoli` | Poli tujuan yang dicetak pada bukti |
 | `nomorAntrean` | Dicetak pada bukti; spasi berulang dinormalisasi |
 
 Scanner menolak QR yang tidak memuat keenam field wajib tersebut. Data QR disimpan sementara di state browser dan dihapus ketika dialog ditutup atau proses selesai. Payload mentah, NIK, dan data pribadi lain tidak dicatat ke log.
@@ -101,7 +101,7 @@ Bukti dicetak setelah secure agent merespons dan memuat:
 - nomor kartu;
 - nomor rujukan;
 - nomor rekam medis;
-- nama dokter;
+- poli tujuan;
 - nomor antrean.
 
 Pencetakan menggunakan dokumen khusus ukuran 80 mm melalui iframe tersembunyi dan dialog cetak browser. Jika secure agent tidak dapat dihubungi sama sekali, bukti tidak dicetak karena proses Frista belum diketahui selesai.
