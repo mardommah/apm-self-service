@@ -39,28 +39,6 @@ function verifyToken(token: string, cardNumber: string): JobPayload {
   return payload;
 }
 
-async function loginFrista() {
-  const url = new URL(upstream);
-  url.searchParams.set("action", "login");
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ username, password }),
-      signal: AbortSignal.timeout(Number(process.env.FRISTA_LOGIN_TIMEOUT_MS ?? 30_000)),
-    });
-    if (!response.ok) throw new Error(`FRISTA_LOGIN_FAILED_${response.status}`);
-    fristaReady = true;
-    lastLoginError = null;
-  } catch (error) {
-    fristaReady = false;
-    lastLoginError = error instanceof Error ? error.message : "FRISTA_LOGIN_FAILED";
-    throw error;
-  }
-}
-
-await loginFrista();
-
 Bun.serve({
   hostname: "127.0.0.1",
   port,
@@ -83,7 +61,7 @@ Bun.serve({
         throw new Error("INVALID_REQUEST");
       }
       const payload = verifyToken(body.token, body.cardNumber);
-      if (activeVisitId && activeVisitId !== payload.visitId) {
+      if (activeVisitId) {
         return Response.json({ code: "AGENT_BUSY" }, { status: 409, headers });
       }
       activeVisitId = payload.visitId;
@@ -97,14 +75,16 @@ Bun.serve({
             password,
             card_number: body.cardNumber,
             exit: "true",
-            wait: "2000",
+            wait: "1000",
           }),
           signal: AbortSignal.timeout(Number(process.env.FRISTA_JOB_TIMEOUT_MS ?? 180_000)),
         });
         if (!response.ok) {
+          lastLoginError = `FRISTA_BOT_FAILED_${response.status}`;
           return Response.json({ code: "FRISTA_BOT_FAILED" }, { status: 502, headers });
         }
-        await loginFrista();
+        fristaReady = true;
+        lastLoginError = null;
         return Response.json({ ok: true, visitId: payload.visitId }, { headers });
       } finally {
         activeVisitId = null;
