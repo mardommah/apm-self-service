@@ -88,9 +88,10 @@ FRISTA_BOT_URL=http://127.0.0.1:3000/?app=frista
 FRISTA_USERNAME=username-frista
 FRISTA_PASSWORD=password-frista
 FRISTA_JOB_TIMEOUT_MS=180000
+FRISTA_LOGIN_TIMEOUT_MS=30000
 ```
 
-Secure agent memvalidasi origin, tanda tangan, masa berlaku token, dan kecocokan hash nomor kartu. Hanya satu job berbeda boleh aktif pada satu waktu. Agent menunggu respons bot; bot menunggu jendela utama Frista (`winTitle2`) selesai atau ditutup sebelum merespons.
+Secure agent memvalidasi origin, tanda tangan, masa berlaku token, dan kecocokan hash nomor kartu. Hanya satu job berbeda boleh aktif pada satu waktu. Saat startup Windows, agent meminta bot membuka Frista dan login. Nomor BPJS yang dimasukkan pasien diteruskan ke kolom pencarian Frista untuk face recognition. Agent menunggu jendela utama Frista (`winTitle2`) selesai atau ditutup, lalu login ulang agar sesi berikutnya tidak menampilkan form login.
 
 ## Bukti cetak
 

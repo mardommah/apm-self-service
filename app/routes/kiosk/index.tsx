@@ -10,7 +10,7 @@ import {
 import { TouchKeyboard } from "~/components/kiosk/TouchKeyboard";
 import { printBpjsCheckin } from "~/lib/print";
 import { checkInBpjsBooking } from "~/server/functions/bpjs";
-import { getFristaBypassEnabled } from "~/server/functions/settings";
+import { getBookingScannerEnabled, getFristaBypassEnabled } from "~/server/functions/settings";
 import { getAllServices, createVisit } from "~/server/functions/visits";
 import type { Service } from "~/server/schema";
 
@@ -29,6 +29,7 @@ type CheckinResult =
 type KioskData = {
   services: Service[];
   fristaBypassEnabled: boolean;
+  bookingScannerEnabled: boolean;
   generalPatientUrl: string | null;
 };
 type KioskActionInput =
@@ -45,16 +46,17 @@ const kioskAction = createServerFn({ method: "POST" })
   .validator((data: KioskActionInput) => data)
   .handler(async ({ data }) => {
     if (data.action === "services") {
-      const [services, fristaBypassEnabled] = await Promise.all([
+      const [services, fristaBypassEnabled, bookingScannerEnabled] = await Promise.all([
         getAllServices(),
         getFristaBypassEnabled(),
+        getBookingScannerEnabled(),
       ]);
       let generalPatientUrl: string | null = null;
       try {
         const url = new URL(process.env.MLITE_GENERAL_PATIENT_URL ?? "");
         if (url.protocol === "http:" || url.protocol === "https:") generalPatientUrl = url.toString();
       } catch {}
-      return { services, fristaBypassEnabled, generalPatientUrl } satisfies KioskData;
+      return { services, fristaBypassEnabled, bookingScannerEnabled, generalPatientUrl } satisfies KioskData;
     }
     if (data.action === "checkin") {
       try {
@@ -123,7 +125,7 @@ export const Route = createFileRoute("/kiosk/")({
 });
 
 function KioskPage() {
-  const { services, fristaBypassEnabled, generalPatientUrl } = Route.useLoaderData() as KioskData;
+  const { services, fristaBypassEnabled, bookingScannerEnabled, generalPatientUrl } = Route.useLoaderData() as KioskData;
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
@@ -133,14 +135,12 @@ function KioskPage() {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingNumber, setBookingNumber] = useState("");
   const [bpjsCardNumber, setBpjsCardNumber] = useState("");
-  const [activeCheckinInput, setActiveCheckinInput] = useState<"booking" | "card">("card");
   const [cameraScannerOpen, setCameraScannerOpen] = useState(false);
   const [checkinMessage, setCheckinMessage] = useState("");
   const [fristaJob, setFristaJob] = useState<FristaJob | null>(null);
   const [fristaProcessing, setFristaProcessing] = useState(false);
   const [fristaValidationPassed, setFristaValidationPassed] = useState(true);
   const [checkinQrData, setCheckinQrData] = useState<BpjsCheckinQrData | null>(null);
-  const bookingInputRef = useRef<HTMLInputElement>(null);
   const bpjsCardInputRef = useRef<HTMLInputElement>(null);
 
   function closeBookingModal() {
@@ -148,7 +148,6 @@ function KioskPage() {
     setCameraScannerOpen(false);
     setBookingNumber("");
     setBpjsCardNumber("");
-    setActiveCheckinInput("card");
     setFristaJob(null);
     setFristaValidationPassed(true);
     setCheckinQrData(null);
@@ -181,14 +180,11 @@ function KioskPage() {
     const booking = bookingNumber.trim();
     if (!/^\d{13}$/.test(bpjsCardNumber)) {
       setError("Nomor kartu BPJS harus tepat 13 digit.");
-      setActiveCheckinInput("card");
       bpjsCardInputRef.current?.focus();
       return;
     }
-    if (!booking) {
+    if (checkinQrData && !booking) {
       setError("Masukkan nomor booking.");
-      setActiveCheckinInput("booking");
-      bookingInputRef.current?.focus();
       return;
     }
     if (
@@ -237,7 +233,6 @@ function KioskPage() {
       setBookingOpen(false);
       setBookingNumber("");
       setBpjsCardNumber("");
-      setActiveCheckinInput("card");
       setCameraScannerOpen(false);
       setFristaJob(null);
       setFristaValidationPassed(true);
@@ -399,8 +394,7 @@ function KioskPage() {
                   disabled={loading}
                   onClick={() => {
                     setPatientTypeOpen(false);
-                    setActiveCheckinInput("card");
-                    setCameraScannerOpen(true);
+                    setCameraScannerOpen(bookingScannerEnabled);
                     setBookingOpen(true);
                   }}
                   className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-6 py-6 text-lg font-bold text-blue-800 hover:border-blue-500"
@@ -421,7 +415,9 @@ function KioskPage() {
             <form
               onSubmit={handleBpjsCheckin}
               onClick={(event) => event.stopPropagation()}
-              className="relative max-h-[calc(100dvh-2rem)] w-full max-w-6xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8"
+              className={`relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8 ${
+                bookingScannerEnabled && cameraScannerOpen ? "max-w-6xl" : "max-w-2xl"
+              }`}
             >
               <button
                 type="button"
@@ -434,19 +430,28 @@ function KioskPage() {
               <h2 className="pr-14 text-2xl font-bold text-gray-900">Check-in BPJS</h2>
               <p className="mt-2 text-gray-500">
                 {fristaBypassEnabled
-                  ? "Mode uji Frista aktif. Validasi SIM RS dan FKTL dilewati sementara."
-                  : "Scan satu QR check-in Mobile JKN untuk mengisi nomor kartu dan kode booking. Input manual tetap tersedia."}
+                  ? "Mode uji Frista aktif. Booking SIM RS tetap dicek; validasi FKTL dilewati sementara."
+                  : bookingScannerEnabled
+                    ? "Scan QR check-in Mobile JKN, atau masukkan nomor kartu BPJS secara manual."
+                    : "Masukkan nomor kartu BPJS. Sistem akan mengecek booking hari ini."}
               </p>
-              <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
-                <section aria-label="Kamera pemindai QR">
-                  <button
+              <div className={`mt-6 grid items-start gap-6 ${
+                bookingScannerEnabled && cameraScannerOpen
+                  ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]"
+                  : "grid-cols-1"
+              }`}>
+                <section
+                  aria-label="Kamera pemindai QR"
+                  className={bookingScannerEnabled && cameraScannerOpen ? "" : "order-2"}
+                >
+                  {bookingScannerEnabled && <button
                     type="button"
                     onClick={() => setCameraScannerOpen((open) => !open)}
                     className="mb-4 rounded-xl border-2 border-blue-200 px-4 py-3 font-bold text-blue-700"
                   >
                     {cameraScannerOpen ? "Gunakan Input Manual" : "Scan dengan Kamera"}
-                  </button>
-                  {cameraScannerOpen && (
+                  </button>}
+                  {bookingScannerEnabled && cameraScannerOpen && (
                     <BpjsCameraScanner
                       onCheckinScan={(data) => {
                         const { bookingCode, cardNumber } = data;
@@ -454,28 +459,28 @@ function KioskPage() {
                         setBpjsCardNumber(cardNumber);
                         setCheckinQrData(data);
                         setCameraScannerOpen(false);
-                        setActiveCheckinInput("booking");
-                        bookingInputRef.current?.focus();
                       }}
                     />
                   )}
-                  {!cameraScannerOpen && (
+                  {(!bookingScannerEnabled || !cameraScannerOpen) && (
                     <TouchKeyboard
-                      value={activeCheckinInput === "booking" ? bookingNumber : bpjsCardNumber}
+                      value={bpjsCardNumber}
                       onChange={(value) => {
                         setCheckinQrData(null);
-                        if (activeCheckinInput === "booking") setBookingNumber(value);
-                        else setBpjsCardNumber(value);
+                        setBpjsCardNumber(value);
                       }}
-                      maxLength={activeCheckinInput === "booking" ? 100 : 13}
-                      mode={activeCheckinInput === "booking" ? "alphanumeric" : "numeric"}
+                      maxLength={13}
+                      mode="numeric"
                       disabled={loading}
                     />
                   )}
                 </section>
-                <section aria-label="Form check-in BPJS">
+                <section
+                  aria-label="Form check-in BPJS"
+                  className={bookingScannerEnabled && cameraScannerOpen ? "" : "order-1"}
+                >
               <label className="grid gap-2 font-semibold text-gray-700">
-                1. Nomor Kartu BPJS
+                Nomor Kartu BPJS
                 <input
                   autoFocus
                   ref={bpjsCardInputRef}
@@ -484,13 +489,11 @@ function KioskPage() {
                     setCheckinQrData(null);
                     setBpjsCardNumber(event.target.value.replace(/\D/g, ""));
                   }}
-                  onFocus={() => setActiveCheckinInput("card")}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && /^\d{13}$/.test(bpjsCardNumber)) {
                       event.preventDefault();
                       setError("");
-                      setActiveCheckinInput("booking");
-                      bookingInputRef.current?.focus();
+                      void handleBpjsCheckin(event as unknown as React.FormEvent);
                     }
                   }}
                   autoComplete="off"
@@ -501,27 +504,25 @@ function KioskPage() {
                   placeholder="13 digit nomor kartu BPJS"
                 />
               </label>
-              <label className="mt-4 grid gap-2 font-semibold text-gray-700">
-                2. Kode Booking
+              {checkinQrData && <label className="mt-4 grid gap-2 font-semibold text-gray-700">
+                Kode Booking
                 <input
-                  ref={bookingInputRef}
                   value={bookingNumber}
                   onChange={(event) => {
                     setCheckinQrData(null);
                     setBookingNumber(event.target.value);
                   }}
-                  onFocus={() => setActiveCheckinInput("booking")}
                   autoComplete="off"
                   inputMode="none"
                   maxLength={100}
-                  required
+                  readOnly
                   className="rounded-xl border-2 border-gray-200 p-4 text-xl uppercase"
                   placeholder="Contoh: ABC12345"
                 />
-              </label>
+              </label>}
               {fristaBypassEnabled && (
                 <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-                  Pengujian aktif: nomor kartu dan booking langsung diteruskan ke Frista tanpa validasi SIM RS atau FKTL.
+                  Pengujian aktif: booking hari ini tetap dicek dari SIM RS, lalu nomor kartu diteruskan ke Frista tanpa validasi FKTL.
                 </div>
               )}
               {error && (
@@ -532,14 +533,16 @@ function KioskPage() {
                   {error}
                 </div>
               )}
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-6 w-full rounded-xl bg-blue-700 px-6 py-4 text-lg font-bold text-white"
-              >
-                {loading ? "Memproses..." : fristaJob ? "Coba Buka Frista" : "Check-in dan Buka Frista"}
-              </button>
                 </section>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`col-span-full w-full rounded-xl bg-blue-700 px-6 py-4 text-lg font-bold text-white ${
+                    bookingScannerEnabled && cameraScannerOpen ? "" : "order-3"
+                  }`}
+                >
+                  {loading ? "Memproses..." : fristaJob ? "Coba Buka Frista" : "Check-in "}
+                </button>
               </div>
             </form>
           </div>

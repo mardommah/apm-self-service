@@ -43,7 +43,7 @@ function getSimrsPool() {
   return pool;
 }
 
-export async function findTodaySimrsBooking(bookingCode: string, cardNumber: string) {
+export async function findTodaySimrsBookingByCard(cardNumber: string) {
   let rows: SimrsBookingRow[];
   try {
     [rows] = await getSimrsPool().execute<SimrsBookingRow[]>(
@@ -58,9 +58,8 @@ export async function findTodaySimrsBooking(bookingCode: string, cardNumber: str
       LEFT JOIN dokter d ON d.kd_dokter = r.kodedokter
       WHERE r.tanggalperiksa = CURRENT_DATE()
         AND r.nomorkartu = ?
-        AND r.nobooking = ?
       LIMIT 1`,
-      [cardNumber, bookingCode],
+      [cardNumber],
     );
   } catch (error) {
     if (error instanceof Error && error.message === "SIMRS_NOT_CONFIGURED") throw error;

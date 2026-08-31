@@ -9,6 +9,8 @@ const upstream = process.env.FRISTA_BOT_URL ?? "http://127.0.0.1:3000/?app=frist
 const username = process.env.FRISTA_USERNAME ?? "";
 const password = process.env.FRISTA_PASSWORD ?? "";
 let activeVisitId: string | null = null;
+let fristaReady = false;
+let lastLoginError: string | null = null;
 
 if (secret.length < 32 || !username || !password) {
   throw new Error("Set FRISTA_AGENT_SHARED_SECRET (>=32 chars), FRISTA_USERNAME, and FRISTA_PASSWORD");
@@ -37,6 +39,28 @@ function verifyToken(token: string, cardNumber: string): JobPayload {
   return payload;
 }
 
+async function loginFrista() {
+  const url = new URL(upstream);
+  url.searchParams.set("action", "login");
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ username, password }),
+      signal: AbortSignal.timeout(Number(process.env.FRISTA_LOGIN_TIMEOUT_MS ?? 30_000)),
+    });
+    if (!response.ok) throw new Error(`FRISTA_LOGIN_FAILED_${response.status}`);
+    fristaReady = true;
+    lastLoginError = null;
+  } catch (error) {
+    fristaReady = false;
+    lastLoginError = error instanceof Error ? error.message : "FRISTA_LOGIN_FAILED";
+    throw error;
+  }
+}
+
+await loginFrista();
+
 Bun.serve({
   hostname: "127.0.0.1",
   port,
@@ -46,7 +70,9 @@ Bun.serve({
     if (origin && origin !== allowedOrigin) return Response.json({ code: "ORIGIN_DENIED" }, { status: 403 });
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
     const url = new URL(request.url);
-    if (url.pathname === "/health") return Response.json({ ok: true, busy: Boolean(activeVisitId) }, { headers });
+    if (url.pathname === "/health") {
+      return Response.json({ ok: true, busy: Boolean(activeVisitId), fristaReady, lastLoginError }, { headers });
+    }
     if (url.pathname !== "/jobs/frista" || request.method !== "POST") {
       return Response.json({ code: "NOT_FOUND" }, { status: 404, headers });
     }
@@ -61,6 +87,7 @@ Bun.serve({
         return Response.json({ code: "AGENT_BUSY" }, { status: 409, headers });
       }
       activeVisitId = payload.visitId;
+      fristaReady = false;
       try {
         const response = await fetch(upstream, {
           method: "POST",
@@ -77,6 +104,7 @@ Bun.serve({
         if (!response.ok) {
           return Response.json({ code: "FRISTA_BOT_FAILED" }, { status: 502, headers });
         }
+        await loginFrista();
         return Response.json({ ok: true, visitId: payload.visitId }, { headers });
       } finally {
         activeVisitId = null;

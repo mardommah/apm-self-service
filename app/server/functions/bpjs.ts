@@ -4,7 +4,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "../db";
 import { bpjsWorkflows, services, visits } from "../schema";
-import { findTodaySimrsBooking } from "../simrs";
+import { findTodaySimrsBookingByCard } from "../simrs";
 import { getFristaBypassEnabled } from "./settings";
 
 export type PatientIdentity = {
@@ -129,25 +129,27 @@ export async function checkInBpjsBooking(
   cardNumber: string,
   source: "manual" | "qr" = "manual",
 ) {
-  const normalizedBookingCode = bookingCode.trim();
   const fristaBypassEnabled = await getFristaBypassEnabled();
+  if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
+  const bookingData = source === "manual"
+    ? await findTodaySimrsBookingByCard(cardNumber)
+    : null;
+  const normalizedBookingCode = source === "manual"
+    ? bookingData!.bookingCode
+    : bookingCode.trim();
   if (!normalizedBookingCode || normalizedBookingCode.length > 100) {
     throw new Error("BOOKING_CODE_INVALID");
   }
-  if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
-  const bookingData = source === "manual" && !fristaBypassEnabled
-    ? await findTodaySimrsBooking(normalizedBookingCode, cardNumber)
-    : null;
   const fristaJob = createSignedFristaJob(
     `booking:${sha256(normalizedBookingCode).slice(0, 26)}`,
     cardNumber,
   );
   if (fristaBypassEnabled) {
     return {
-      message: "Mode uji aktif. Validasi SIM RS dan FKTL dilewati; proses dilanjutkan ke Frista.",
+      message: "Mode uji aktif. Booking SIM RS ditemukan; validasi FKTL dilewati dan proses dilanjutkan ke Frista.",
       fristaJob,
       validationPassed: false,
-      bookingData: null,
+      bookingData,
     };
   }
 

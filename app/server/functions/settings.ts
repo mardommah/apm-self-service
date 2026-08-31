@@ -24,6 +24,24 @@ export async function setBarcodeEnabled(barcodeEnabled: boolean) {
     });
 }
 
+export async function getBookingScannerEnabled() {
+  const [settings] = await getDb()
+    .select({ bookingScannerEnabled: appSettings.bookingScannerEnabled })
+    .from(appSettings)
+    .where(eq(appSettings.id, SETTINGS_ID))
+    .limit(1);
+  return settings?.bookingScannerEnabled ?? false;
+}
+
+export async function setBookingScannerEnabled(bookingScannerEnabled: boolean) {
+  await getDb()
+    .insert(appSettings)
+    .values({ id: SETTINGS_ID, bookingScannerEnabled, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({
+      set: { bookingScannerEnabled, updatedAt: new Date() },
+    });
+}
+
 export async function getFristaBypassEnabled() {
   const [settings] = await getDb()
     .select({ fristaBypassEnabled: appSettings.fristaBypassEnabled })

@@ -1,6 +1,6 @@
--- Temporary Frista test mode. When enabled, the application skips the SIM RS
--- booking lookup and BPJS FKTL check-in, then sends the manually entered card
--- number and booking code directly to Frista. Keep disabled by default so the
+-- Temporary Frista test mode. When enabled, the application still checks the
+-- SIM RS booking but skips BPJS FKTL check-in, then sends the card number to
+-- Frista. Keep disabled by default so the
 -- production validation path remains fail-closed.
 -- Use information_schema because older MySQL/MariaDB versions do not support
 -- ALTER TABLE ... ADD COLUMN IF NOT EXISTS.

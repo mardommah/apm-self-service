@@ -18,8 +18,10 @@ import {
 import { verifyToken } from "~/server/functions/auth";
 import {
   getBarcodeEnabled,
+  getBookingScannerEnabled,
   getFristaBypassEnabled,
   setBarcodeEnabled,
+  setBookingScannerEnabled,
   setFristaBypassEnabled,
 } from "~/server/functions/settings";
 import type { VisitStatus } from "~/server/schema";
@@ -37,7 +39,7 @@ const getDashboardDataAction = createServerFn({ method: "GET" })
       status: (data.status as VisitStatus) || undefined,
       serviceCode: data.serviceCode || undefined,
     };
-    const [visits, totalVisits, stats, services, barcodeEnabled, fristaBypassEnabled] = await Promise.all([
+    const [visits, totalVisits, stats, services, barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled] = await Promise.all([
       listVisits({
         ...filters,
         limit: pageSize,
@@ -47,6 +49,7 @@ const getDashboardDataAction = createServerFn({ method: "GET" })
       getDailyStats(),
       getAdminServices(),
       getBarcodeEnabled(),
+      getBookingScannerEnabled(),
       getFristaBypassEnabled(),
     ]);
     return {
@@ -57,6 +60,7 @@ const getDashboardDataAction = createServerFn({ method: "GET" })
       stats,
       services,
       barcodeEnabled,
+      bookingScannerEnabled,
       fristaBypassEnabled,
       admin: { username: payload.username, role: payload.role },
     };
@@ -86,6 +90,15 @@ const updateBarcodeSettingAction = createServerFn({ method: "POST" })
     const payload = verifyToken(data.token);
     if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
     await setBarcodeEnabled(data.enabled);
+    return { ok: true };
+  });
+
+const updateBookingScannerSettingAction = createServerFn({ method: "POST" })
+  .validator((d: { token: string; enabled: boolean }) => d)
+  .handler(async ({ data }) => {
+    const payload = verifyToken(data.token);
+    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
+    await setBookingScannerEnabled(data.enabled);
     return { ok: true };
   });
 
@@ -179,6 +192,7 @@ function DashboardPage() {
   const [savingPoli, setSavingPoli] = useState(false);
   const [poliModalOpen, setPoliModalOpen] = useState(false);
   const [savingBarcode, setSavingBarcode] = useState(false);
+  const [savingBookingScanner, setSavingBookingScanner] = useState(false);
   const [savingFristaBypass, setSavingFristaBypass] = useState(false);
 
   useEffect(() => {
@@ -278,6 +292,17 @@ function DashboardPage() {
     }
   }
 
+  async function handleBookingScannerSetting(enabled: boolean) {
+    if (!token) return;
+    setSavingBookingScanner(true);
+    try {
+      await updateBookingScannerSettingAction({ data: { token, enabled } });
+      await fetchData(token, statusFilter, serviceFilter, page);
+    } finally {
+      setSavingBookingScanner(false);
+    }
+  }
+
   async function handleServe(visitId: string) {
     if (!token) return;
     setLoadingVisit(visitId);
@@ -369,11 +394,26 @@ function DashboardPage() {
               />
             </div>
 
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div>
+                <p className="font-medium text-gray-800">Scanner barcode booking</p>
+                <p className="text-sm text-gray-500">
+                  Jika nonaktif, pasien lama check-in manual memakai nomor kartu BPJS saja.
+                </p>
+              </div>
+              <SettingSwitch
+                checked={data.bookingScannerEnabled}
+                disabled={savingBookingScanner}
+                label="Scanner barcode booking"
+                onChange={handleBookingScannerSetting}
+              />
+            </div>
+
             <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
               <div>
                 <p className="font-medium text-amber-900">Bypass check-in FKTL ke Frista</p>
                 <p className="text-sm text-amber-700">
-                  Mode pengujian: validasi FKTL tetap berjalan; jika gagal, proses tetap lanjut ke Frista dan pencetakan.
+                  Mode pengujian: booking SIM RS tetap dicek; validasi FKTL dilewati sebelum Frista dan pencetakan.
                 </p>
               </div>
               <SettingSwitch
