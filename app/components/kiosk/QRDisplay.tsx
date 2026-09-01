@@ -3,6 +3,7 @@ import QRCode from "react-qr-code";
 import { SERVICE_ICONS } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { printTicket } from "~/lib/print";
+import { QrCountdown } from "./QrCountdown";
 
 interface Props {
   visitId: string;
@@ -39,8 +40,6 @@ export function QRDisplay({
     const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearTimeout(timer);
   }, [secondsLeft, onTimeout]);
-
-  const progress = (secondsLeft / Math.floor(timeoutMs / 1000)) * 100;
 
   async function handlePrint() {
     await printTicket({
@@ -89,21 +88,7 @@ export function QRDisplay({
         </p>
       </div>
 
-      {/* Countdown */}
-      <div className="w-full max-w-sm">
-        <div className="flex justify-between text-sm text-gray-500 mb-2">
-          <span>Halaman akan kembali otomatis</span>
-          <span className={secondsLeft <= 30 ? "text-red-500 font-bold" : ""}>
-            {secondsLeft}s
-          </span>
-        </div>
-        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-linear"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
+      <QrCountdown secondsLeft={secondsLeft} timeoutMs={timeoutMs} />
 
       <div className="grid w-full max-w-sm gap-3 no-print">
         <Button size="lg" onClick={handlePrint} className="w-full">

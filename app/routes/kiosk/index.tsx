@@ -1,6 +1,4 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { setCookie } from "@tanstack/start-server-core";
 import { useRef, useState } from "react";
 import { ServiceCard } from "~/components/kiosk/ServiceCard";
 import {
@@ -9,10 +7,9 @@ import {
 } from "~/components/kiosk/BpjsCameraScanner";
 import { TouchKeyboard } from "~/components/kiosk/TouchKeyboard";
 import { printBpjsCheckin } from "~/lib/print";
-import { checkInBpjsBooking, lookupBpjsBooking } from "~/server/functions/bpjs";
-import { getBookingScannerEnabled, getFristaBypassEnabled } from "~/server/functions/settings";
-import { getAllServices, createVisit } from "~/server/functions/visits";
-import type { Service } from "~/server/schema";
+import { lookupBpjsBooking } from "~/server/functions/bpjs";
+import { createVisit } from "~/server/functions/visits";
+import { kioskAction, type KioskData } from "~/server/actions/kiosk";
 
 // ─── Server functions ─────────────────────────────────────────────────────────
 type CreateVisitResult = Awaited<ReturnType<typeof createVisit>>;
@@ -30,101 +27,6 @@ type CheckinResult =
       bookingData: BpjsCheckinQrData | null;
     }
   | { ok: false; message: string };
-type KioskData = {
-  services: Service[];
-  fristaBypassEnabled: boolean;
-  bookingScannerEnabled: boolean;
-  generalPatientUrl: string | null;
-};
-type KioskActionInput =
-  | { action: "services" }
-  | { action: "lookup"; bookingCode?: string; cardNumber: string }
-  | { action: "checkin"; bookingCode: string; cardNumber: string; source: "manual" | "qr" }
-  | {
-      action: "create";
-      serviceCode: string;
-      destinationServiceCode?: string;
-      patientStatus?: "baru" | "lama";
-    };
-
-const kioskAction = createServerFn({ method: "POST" })
-  .validator((data: KioskActionInput) => data)
-  .handler(async ({ data }) => {
-    if (data.action === "services") {
-      const [services, fristaBypassEnabled, bookingScannerEnabled] = await Promise.all([
-        getAllServices(),
-        getFristaBypassEnabled(),
-        getBookingScannerEnabled(),
-      ]);
-      let generalPatientUrl: string | null = null;
-      try {
-        const url = new URL(process.env.MLITE_GENERAL_PATIENT_URL ?? "");
-        if (url.protocol === "http:" || url.protocol === "https:") generalPatientUrl = url.toString();
-      } catch {}
-      return { services, fristaBypassEnabled, bookingScannerEnabled, generalPatientUrl } satisfies KioskData;
-    }
-    const knownMessages: Record<string, string> = {
-      BPJS_FKTL_NOT_CONFIGURED: "Kredensial API BPJS belum dikonfigurasi.",
-      BPJS_FKTL_UNAVAILABLE: "Layanan check-in BPJS tidak dapat dihubungi.",
-      BPJS_FKTL_INVALID_RESPONSE: "Respons layanan check-in BPJS tidak valid.",
-      BPJS_FKTL_TOKEN_MISSING: "Token layanan check-in BPJS tidak tersedia.",
-      BOOKING_CODE_INVALID: "Nomor booking tidak valid.",
-      BPJS_CARD_INVALID: "Nomor kartu BPJS harus tepat 13 digit.",
-      FRISTA_AGENT_NOT_CONFIGURED: "Agent Frista belum dikonfigurasi pada kiosk.",
-      SIMRS_NOT_CONFIGURED: "Koneksi database SIM RS belum dikonfigurasi.",
-      SIMRS_UNAVAILABLE: "Database SIM RS tidak dapat dihubungi.",
-      SIMRS_BOOKING_NOT_FOUND: "Booking hari ini tidak ditemukan untuk nomor kartu tersebut.",
-      SIMRS_BOOKING_CANCELLED: "Booking hari ini berstatus batal.",
-      SIMRS_BOOKING_NOT_AVAILABLE: "Booking tidak tersedia untuk check-in.",
-      SIMRS_BOOKING_MISMATCH: "Kode booking QR tidak cocok dengan booking pasien hari ini.",
-    };
-    if (data.action === "lookup") {
-      try {
-        return {
-          ok: true as const,
-          booking: await lookupBpjsBooking(data.cardNumber, data.bookingCode),
-        };
-      } catch (error) {
-        const code = error instanceof Error ? error.message : "SIMRS_UNAVAILABLE";
-        return { ok: false as const, message: knownMessages[code] ?? code };
-      }
-    }
-    if (data.action === "checkin") {
-      try {
-        const result = await checkInBpjsBooking(data.bookingCode, data.cardNumber, data.source);
-        return {
-          ok: true as const,
-          message: result.message,
-          fristaJob: result.fristaJob,
-          validationPassed: result.validationPassed,
-          bookingData: result.bookingData,
-        };
-      } catch (error) {
-        const code = error instanceof Error ? error.message : "BPJS_FKTL_REQUEST_FAILED";
-        return {
-          ok: false as const,
-          message: knownMessages[code] ?? code,
-        };
-      }
-    }
-    const registration =
-      data.destinationServiceCode && data.patientStatus
-        ? {
-            destinationServiceCode: data.destinationServiceCode,
-            patientStatus: data.patientStatus,
-          }
-        : undefined;
-    const result = await createVisit(data.serviceCode, registration);
-    if (registration) {
-      setCookie("bpjs_kiosk_visit_id", result.id, {
-        httpOnly: true,
-        sameSite: "strict",
-        path: "/",
-        maxAge: 60 * 30,
-      });
-    }
-    return result;
-  });
 
 const getServicesAction = () =>
   kioskAction({ data: { action: "services" } }) as Promise<KioskData>;

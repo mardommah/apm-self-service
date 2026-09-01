@@ -1,141 +1,16 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
 import { StatsCards } from "~/components/admin/StatsCards";
 import { VisitsTable } from "~/components/admin/VisitsTable";
 import { Button } from "~/components/ui/button";
+import { getDashboardDataAction } from "~/server/actions/dashboard-data";
+import { createPoliAction, updatePoliAction } from "~/server/actions/dashboard-poli";
 import {
-  listVisits,
-  getDailyStats,
-  markServed,
-  revokeVisit,
-  deleteVisit,
-  countVisits,
-  getAdminServices,
-  createPoliService,
-  updatePoliService,
-} from "~/server/functions/visits";
-import { verifyToken } from "~/server/functions/auth";
-import {
-  getBarcodeEnabled,
-  getBookingScannerEnabled,
-  getFristaBypassEnabled,
-  setBarcodeEnabled,
-  setBookingScannerEnabled,
-  setFristaBypassEnabled,
-} from "~/server/functions/settings";
-import type { VisitStatus } from "~/server/schema";
-
-// ─── Server functions ─────────────────────────────────────────────────────────
-const getDashboardDataAction = createServerFn({ method: "GET" })
-  .validator((d: { token: string; status?: string; serviceCode?: string; page?: number }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload) throw new Error("UNAUTHORIZED");
-
-    const pageSize = 10;
-    const page = Math.max(1, Math.floor(data.page ?? 1));
-    const filters = {
-      status: (data.status as VisitStatus) || undefined,
-      serviceCode: data.serviceCode || undefined,
-    };
-    const [visits, totalVisits, stats, services, barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled] = await Promise.all([
-      listVisits({
-        ...filters,
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-      }),
-      countVisits(filters),
-      getDailyStats(),
-      getAdminServices(),
-      getBarcodeEnabled(),
-      getBookingScannerEnabled(),
-      getFristaBypassEnabled(),
-    ]);
-    return {
-      visits,
-      totalVisits,
-      page,
-      pageSize,
-      stats,
-      services,
-      barcodeEnabled,
-      bookingScannerEnabled,
-      fristaBypassEnabled,
-      admin: { username: payload.username, role: payload.role },
-    };
-  });
-
-const createPoliAction = createServerFn({ method: "POST" })
-  .validator((d: { token: string; code: string; label: string }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
-    await createPoliService(data.code, data.label);
-    return { ok: true };
-  });
-
-const updatePoliAction = createServerFn({ method: "POST" })
-  .validator((d: { token: string; id: number; label: string; isActive: boolean }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
-    await updatePoliService(data.id, data.label, data.isActive);
-    return { ok: true };
-  });
-
-const updateBarcodeSettingAction = createServerFn({ method: "POST" })
-  .validator((d: { token: string; enabled: boolean }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
-    await setBarcodeEnabled(data.enabled);
-    return { ok: true };
-  });
-
-const updateBookingScannerSettingAction = createServerFn({ method: "POST" })
-  .validator((d: { token: string; enabled: boolean }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
-    await setBookingScannerEnabled(data.enabled);
-    return { ok: true };
-  });
-
-const updateFristaBypassSettingAction = createServerFn({ method: "POST" })
-  .validator((d: { token: string; enabled: boolean }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload || payload.role !== "admin") throw new Error("UNAUTHORIZED");
-    await setFristaBypassEnabled(data.enabled);
-    return { ok: true };
-  });
-
-const serveAction = createServerFn({ method: "POST" })
-  .validator((d: { token: string; visitId: string }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload) throw new Error("UNAUTHORIZED");
-    return markServed(data.visitId, payload.adminId);
-  });
-
-const revokeAction = createServerFn({ method: "POST" })
-  .validator((d: { token: string; visitId: string }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload) throw new Error("UNAUTHORIZED");
-    await revokeVisit(data.visitId);
-    return { ok: true };
-  });
-
-const deleteAction = createServerFn({ method: "POST" })
-  .validator((d: { token: string; visitId: string }) => d)
-  .handler(async ({ data }) => {
-    const payload = verifyToken(data.token);
-    if (!payload) throw new Error("UNAUTHORIZED");
-    await deleteVisit(data.visitId);
-    return { ok: true };
-  });
+  updateBarcodeSettingAction,
+  updateBookingScannerSettingAction,
+  updateFristaBypassSettingAction,
+} from "~/server/actions/dashboard-settings";
+import { deleteAction, revokeAction, serveAction } from "~/server/actions/dashboard-visits";
 
 export const Route = createFileRoute("/admin/dashboard")({
   component: DashboardPage,

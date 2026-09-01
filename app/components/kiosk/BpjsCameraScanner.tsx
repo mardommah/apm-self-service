@@ -132,7 +132,7 @@ export function BpjsCameraScanner({ onCheckinScan }: Props) {
         }
         try {
           await scanner.applyVideoConstraints({
-            advanced: [{ focusMode: "continuous" }],
+            advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
           });
         } catch {
           // Webcam fixed-focus tetap dapat dipakai tanpa autofocus.
