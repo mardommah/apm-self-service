@@ -56,12 +56,13 @@ export async function findTodaySimrsBookingByCard(cardNumber: string, bookingCod
         r.nomorkartu,
         r.nomorreferensi,
         r.norm,
-        COALESCE(r.namapoli, r.kodepoli, '') AS nama_poli,
+        COALESCE(NULLIF(pl.nm_poli, ''), r.kodepoli, '') AS nama_poli,
         r.nomorantrean,
         COALESCE(NULLIF(p.nm_pasien, ''), r.norm) AS nama_pasien,
         COALESCE(r.status, '') AS status
       FROM referensi_mobilejkn_bpjs r
       LEFT JOIN pasien p ON p.no_rkm_medis = r.norm
+      LEFT JOIN poliklinik pl ON pl.kd_poli = r.kodepoli
       WHERE r.tanggalperiksa = CURRENT_DATE()
         AND r.nomorkartu = ?
         AND (? IS NULL OR r.nobooking = ?)
