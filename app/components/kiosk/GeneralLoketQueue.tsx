@@ -62,7 +62,8 @@ export function GeneralLoketQueue({ onBack }: { onBack: () => void }) {
         </div>
       )}
       {error && <p role="alert" className="rounded-xl bg-red-50 p-4 font-semibold text-red-700">{error}</p>}
-      <button type="button" onClick={onBack} className="rounded-xl border-2 border-blue-700 px-8 py-3 font-bold text-blue-700">
+      <button type="button" onClick={onBack} disabled={loading}
+        className="rounded-xl border-2 border-blue-700 px-8 py-3 font-bold text-blue-700 disabled:opacity-50">
         Kembali
       </button>
     </div>

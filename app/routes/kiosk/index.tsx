@@ -238,7 +238,7 @@ function KioskPage() {
         />
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-3 py-4 sm:px-8 sm:py-8 max-w-7xl mx-auto w-full gap-4">
+      <div className="flex-1 flex flex-col items-center justify-center px-3 py-3 sm:px-8 max-w-7xl mx-auto w-full gap-4">
         {generalPatientOpen && <GeneralPatientPanel
           url={generalPatientUrl}
           onClose={() => setGeneralPatientOpen(false)}
@@ -576,10 +576,10 @@ function KioskPage() {
 
         {/* Service Grid */}
         <div className="w-full">
-          <h2 className="text-center text-xl font-semibold text-gray-700 mb-3 sm:text-2xl sm:mb-5">
+          <h2 className="text-center text-xl font-semibold text-gray-700 mb-3 sm:text-2xl">
             Pilih Layanan
           </h2>
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-5">
+          <div className="mx-auto grid max-w-4xl grid-flow-col grid-rows-3 auto-cols-fr gap-2 sm:gap-3">
             {services.map((service) => (
               <ServiceCard
                 key={service.code}
