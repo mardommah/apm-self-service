@@ -226,19 +226,19 @@ function KioskPage() {
   return (
     <div className="kiosk-fullscreen flex flex-col bg-gray-50 min-h-dvh">
       {/* Header */}
-      <div className="bg-blue-700 text-white px-8 py-5 shadow-lg flex items-center justify-between gap-6">
+      <div className="bg-blue-700 text-white px-4 py-3 shadow-lg flex items-center justify-between gap-4 sm:px-8 sm:py-5">
         <div>
-          <h1 className="text-2xl font-bold">Klinik Syamsinar Maros Self Service</h1>
+          <h1 className="text-lg font-bold sm:text-2xl">Klinik Syamsinar Maros Self Service</h1>
           <p className="text-blue-200 text-sm">Pilih layanan yang Anda tuju</p>
         </div>
         <img
           src="/logo-klinik-s.png"
           alt="Klinik Syamsinar"
-          className="h-16 w-auto max-w-[40%] rounded-xl bg-white object-contain"
+          className="h-10 w-auto max-w-[30%] rounded-xl bg-white object-contain sm:h-16"
         />
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 max-w-5xl mx-auto w-full gap-6">
+      <div className="flex-1 flex flex-col items-center justify-center px-3 py-4 sm:px-8 sm:py-8 max-w-7xl mx-auto w-full gap-4">
         {generalPatientOpen && <GeneralPatientPanel
           url={generalPatientUrl}
           onClose={() => setGeneralPatientOpen(false)}
@@ -576,10 +576,10 @@ function KioskPage() {
 
         {/* Service Grid */}
         <div className="w-full">
-          <h2 className="text-center text-2xl font-semibold text-gray-700 mb-6">
+          <h2 className="text-center text-xl font-semibold text-gray-700 mb-3 sm:text-2xl sm:mb-5">
             Pilih Layanan
           </h2>
-          <div className="grid grid-cols-2 gap-7">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-5">
             {services.map((service) => (
               <ServiceCard
                 key={service.code}

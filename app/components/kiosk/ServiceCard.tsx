@@ -15,9 +15,9 @@ export function ServiceCard({ code, label, onClick, disabled }: Props) {
       onClick={onClick}
       disabled={disabled}
       className={[
-        "flex flex-col items-center justify-center gap-6 rounded-3xl border-2 p-10",
+        "flex flex-col items-center justify-center gap-2 rounded-2xl border-2 p-2 sm:gap-3 sm:rounded-3xl sm:p-5",
         "transition-all duration-150 select-none",
-        "min-h-[240px] w-full",
+        "min-h-[116px] w-full sm:min-h-[clamp(8rem,22dvh,12rem)] lg:min-h-[200px]",
         disabled
           ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed"
           : "border-blue-200 bg-white hover:border-blue-500 hover:bg-blue-50 active:scale-95 cursor-pointer shadow-sm hover:shadow-md",
@@ -28,14 +28,14 @@ export function ServiceCard({ code, label, onClick, disabled }: Props) {
         <img
           src="/logo bpjs.png"
           alt="Logo BPJS Kesehatan"
-          className="h-36 w-36 object-contain"
+          className="h-14 w-14 object-contain sm:h-24 sm:w-24 lg:h-28 lg:w-28"
         />
       ) : (
-        <span className="text-7xl" role="img" aria-hidden>
+        <span className="text-4xl sm:text-6xl lg:text-7xl" role="img" aria-hidden>
           {icon}
         </span>
       )}
-      <span className="text-2xl font-bold text-gray-800 text-center leading-tight">
+      <span className="text-sm font-bold text-gray-800 text-center leading-tight sm:text-xl">
         {label}
       </span>
     </button>
