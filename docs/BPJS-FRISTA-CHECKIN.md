@@ -112,11 +112,9 @@ Admin dapat membuka Pengaturan Aplikasi dan mengaktifkan saklar **Bypass check-i
 
 Saat aktif:
 
-- nomor kartu dan kode booking tetap wajib;
-- validasi FKTL tetap dijalankan;
-- kegagalan validasi tidak menghentikan job Frista;
-- respons gagal dari agent tidak menghentikan pencetakan bukti QR;
-- kegagalan koneksi total ke agent tetap menghentikan pencetakan.
+- Alur check-in biasa tetap memerlukan booking SIM RS dan nomor kartu 13 digit, tetapi validasi FKTL dilewati sebelum Frista.
+- Tombol **Uji Frista Tanpa Booking** menerima nomor kartu dummy 13 digit yang dimasukkan manual dan membuat job Frista bertanda tangan tanpa mencari booking SIM RS atau memanggil FKTL.
+- Aplikasi tidak membuat booking atau kunjungan dan tidak mencetak bukti check-in pada jalur uji. Kegagalan agent atau bot ditampilkan sebagai kegagalan uji.
 
 Mode ini hanya untuk pengembangan dan harus dinonaktifkan setelah pengujian.
 
@@ -135,7 +133,7 @@ Dua QR dengan data palsu tersedia untuk pengujian scanner dan parsing:
 - `/dev/bpjs-checkin-dummy-qr.png`
 - `/dev/bpjs-checkin-dummy-qr-2.png`
 
-File sumber berada di `public/dev/`. QR dummy dapat menghasilkan status gagal pada FKTL atau Frista karena nomor kartu tidak terdaftar. Aktifkan bypass dev untuk menguji kelanjutan alur dan pencetakan.
+File sumber berada di `public/dev/`. QR dummy dapat menghasilkan status gagal karena nomor kartu atau booking tidak terdaftar. Untuk mencoba Frista tanpa booking, aktifkan mode pengujian lalu masukkan nomor kartu dummy 13 digit melalui tombol **Uji Frista Tanpa Booking**. Alur ini tidak mencetak bukti check-in.
 
 QR dummy tidak membuktikan biometrik Frista berhasil. Pengujian biometrik penuh memerlukan nomor kartu peserta yang valid dan izin penggunaan data tersebut.
 

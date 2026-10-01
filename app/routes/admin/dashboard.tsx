@@ -288,7 +288,7 @@ function DashboardPage() {
               <div>
                 <p className="font-medium text-amber-900">Bypass check-in FKTL ke Frista</p>
                 <p className="text-sm text-amber-700">
-                  Mode pengujian: booking SIM RS tetap dicek; validasi FKTL dilewati sebelum Frista dan pencetakan.
+                  Check-in biasa tetap memeriksa booking SIM RS. Tombol uji mengirim nomor kartu dummy ke Frista tanpa booking, validasi FKTL, atau cetak bukti.
                 </p>
               </div>
               <SettingSwitch

@@ -7,6 +7,7 @@ const messages: Record<string, string> = {
   BPJS_CARD_INVALID: "Nomor kartu BPJS harus tepat 13 digit.",
   PATIENT_IDENTIFIER_INVALID: "Masukkan NIK, nomor RM, atau nomor kartu BPJS yang valid.",
   FRISTA_AGENT_NOT_CONFIGURED: "Agent Frista belum dikonfigurasi pada kiosk.",
+  FRISTA_TEST_DISABLED: "Mode pengujian Frista belum aktif.",
   SIMRS_NOT_CONFIGURED: "Koneksi database SIM RS belum dikonfigurasi.",
   SIMRS_UNAVAILABLE: "Database SIM RS tidak dapat dihubungi.",
   SIMRS_BOOKING_NOT_FOUND: "Booking hari ini tidak ditemukan untuk identitas tersebut.",

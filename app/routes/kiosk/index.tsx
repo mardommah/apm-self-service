@@ -28,6 +28,9 @@ type CheckinResult =
       bookingData: BpjsCheckinQrData | null;
     }
   | { ok: false; message: string };
+type FristaTestResult =
+  | { ok: true; fristaJob: FristaJob }
+  | { ok: false; message: string };
 
 const getServicesAction = () =>
   kioskAction({ data: { action: "services" } }) as Promise<KioskData>;
@@ -42,6 +45,8 @@ const checkinAction = (bookingCode: string, cardNumber: string, source: "manual"
   kioskAction({ data: { action: "checkin", bookingCode, cardNumber, source } }) as Promise<CheckinResult>;
 const lookupBookingAction = (identifier: string, bookingCode?: string) =>
   kioskAction({ data: { action: "lookup", identifier, bookingCode } }) as Promise<BookingLookupResult>;
+const createFristaTestAction = (cardNumber: string) =>
+  kioskAction({ data: { action: "frista-test", cardNumber } }) as Promise<FristaTestResult>;
 
 export const Route = createFileRoute("/kiosk/")({
   loader: (): Promise<KioskData> => getServicesAction(),
@@ -201,6 +206,40 @@ function KioskPage() {
           ? "Check-in berhasil, tetapi Frista gagal dibuka. Pastikan secure agent dan JKN Biometrik Bot berjalan, lalu coba lagi."
           : "Layanan check-in BPJS tidak dapat dihubungi.",
       );
+    } finally {
+      setFristaProcessing(false);
+      setLoading(false);
+    }
+  }
+
+  async function handleFristaDummyTest() {
+    const cardNumber = bpjsCardNumber.trim();
+    if (!/^\d{13}$/.test(cardNumber)) {
+      setError("Uji Frista memerlukan nomor kartu BPJS dummy tepat 13 digit.");
+      bpjsCardInputRef.current?.focus();
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setCheckinMessage("");
+    let jobCreated = false;
+    try {
+      const result = await createFristaTestAction(cardNumber);
+      if (!result.ok) { setError(result.message); return; }
+      jobCreated = true;
+      setFristaProcessing(true);
+      const response = await fetch(`${result.fristaJob.agentUrl}/jobs/frista`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: result.fristaJob.token, cardNumber }),
+      });
+      if (!response.ok) throw new Error("FRISTA_AGENT_FAILED");
+      closeBookingModal();
+      setCheckinMessage("Uji Frista selesai. Tidak ada booking atau bukti check-in yang dibuat.");
+    } catch {
+      setError(jobCreated
+        ? "Job uji dibuat, tetapi agent atau proses Frista gagal. Pastikan secure agent dan JKN Biometrik Bot berjalan."
+        : "Layanan uji Frista tidak dapat dihubungi.");
     } finally {
       setFristaProcessing(false);
       setLoading(false);
@@ -430,7 +469,7 @@ function KioskPage() {
               <h2 className="pr-14 text-2xl font-bold text-gray-900">Check-in BPJS</h2>
               <p className="mt-2 text-gray-500">
                 {fristaBypassEnabled
-                  ? "Mode uji Frista aktif. Booking SIM RS tetap dicek; validasi FKTL dilewati sementara."
+                  ? "Mode uji Frista aktif. Gunakan nomor kartu dummy 13 digit untuk uji tanpa booking, atau cek booking seperti biasa."
                   : bookingScannerEnabled
                     ? "Scan QR check-in Mobile JKN, atau masukkan NIK, nomor RM, atau nomor kartu BPJS."
                     : "Masukkan NIK, nomor RM, atau nomor kartu BPJS. Sistem akan mengecek booking hari ini."}
@@ -529,7 +568,7 @@ function KioskPage() {
               </label>}
               {fristaBypassEnabled && (
                 <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-                  Pengujian aktif: booking hari ini tetap dicek dari SIM RS, lalu nomor kartu diteruskan ke Frista tanpa validasi FKTL.
+                  Tombol Uji Frista mengirim nomor dummy ke agent tanpa booking SIM RS, validasi FKTL, atau cetak bukti check-in.
                 </div>
               )}
               {error && (
@@ -556,6 +595,14 @@ function KioskPage() {
                         ? "Check-in dan Buka Frista"
                         : "Cek Booking"}
                 </button>
+                {fristaBypassEnabled && !bookingConfirmation && !qrScanned && <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void handleFristaDummyTest()}
+                  className="order-4 col-span-full w-full rounded-xl border-2 border-amber-500 bg-amber-50 px-6 py-4 text-lg font-bold text-amber-900 disabled:opacity-50"
+                >
+                  Uji Frista Tanpa Booking
+                </button>}
               </div>
             </form>
           </div>

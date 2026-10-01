@@ -1,6 +1,6 @@
 "use server";
 
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "../db";
 import { bpjsWorkflows, services, visits } from "../schema";
@@ -134,6 +134,12 @@ export async function lookupBpjsBooking(identifier: string, scannedBookingCode?:
     }
     throw error;
   }
+}
+
+export async function createFristaTestJob(cardNumber: string) {
+  if (!(await getFristaBypassEnabled())) throw new Error("FRISTA_TEST_DISABLED");
+  if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
+  return createSignedFristaJob(`test:${randomUUID()}`, cardNumber);
 }
 
 export async function checkInBpjsBooking(

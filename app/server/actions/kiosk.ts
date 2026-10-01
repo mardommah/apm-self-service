@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { setCookie } from "@tanstack/start-server-core";
-import { checkInBpjsBooking, lookupBpjsBooking } from "../functions/bpjs";
+import { checkInBpjsBooking, createFristaTestJob, lookupBpjsBooking } from "../functions/bpjs";
 import { getBookingScannerEnabled, getFristaBypassEnabled } from "../functions/settings";
 import { createVisit, getAllServices } from "../functions/visits";
 import { createGeneralLoketQueue, getGeneralLoketPreview } from "../simrs";
@@ -12,6 +12,7 @@ type Input =
   | { action: "general-loket-queue"; loket: 1 | 2 }
   | { action: "general-loket-preview" }
   | { action: "lookup"; bookingCode?: string; identifier: string }
+  | { action: "frista-test"; cardNumber: string }
   | { action: "checkin"; bookingCode: string; cardNumber: string; source: "manual" | "qr" }
   | {
       action: "create";
@@ -65,6 +66,13 @@ export const kioskAction = createServerFn({ method: "POST" })
         return { ok: true as const, booking: await lookupBpjsBooking(data.identifier, data.bookingCode) };
       } catch (error) {
         return { ok: false as const, message: kioskErrorMessage(error, "SIMRS_UNAVAILABLE") };
+      }
+    }
+    if (data.action === "frista-test") {
+      try {
+        return { ok: true as const, fristaJob: await createFristaTestJob(data.cardNumber) };
+      } catch (error) {
+        return { ok: false as const, message: kioskErrorMessage(error, "FRISTA_AGENT_FAILED") };
       }
     }
     if (data.action === "checkin") {
