@@ -9,7 +9,7 @@ import { kioskErrorMessage } from "./kiosk-errors";
 
 type Input =
   | { action: "services" }
-  | { action: "general-loket-queue" }
+  | { action: "general-loket-queue"; loket: 1 | 2 }
   | { action: "lookup"; bookingCode?: string; identifier: string }
   | { action: "checkin"; bookingCode: string; cardNumber: string; source: "manual" | "qr" }
   | {
@@ -43,8 +43,11 @@ export const kioskAction = createServerFn({ method: "POST" })
       return { services, fristaBypassEnabled, bookingScannerEnabled, generalPatientUrl };
     }
     if (data.action === "general-loket-queue") {
+      if (data.loket !== 1 && data.loket !== 2) {
+        return { ok: false as const, message: "Loket tidak valid." };
+      }
       try {
-        return { ok: true as const, queue: await createGeneralLoketQueue() };
+        return { ok: true as const, queue: await createGeneralLoketQueue(data.loket) };
       } catch {
         return { ok: false as const, message: "Nomor antrean loket belum dapat dibuat. Silakan coba lagi." };
       }

@@ -139,5 +139,6 @@ export type AdminRole = "admin" | "security";
 export type ServiceCode =
   | "registrasi"
   | "poli_umum"
+  | "vaksinasi"
   | "igd"
   | "laboratorium";

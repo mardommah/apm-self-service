@@ -398,6 +398,26 @@ function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h2 className="font-semibold text-amber-900">Akun BPJS untuk pengujian</h2>
+          <p className="mt-1 text-sm text-amber-800">
+            Nomor dan QR berikut data dummy untuk menguji scanner. Keduanya tidak terdaftar sebagai peserta BPJS; validasi FKTL dan biometrik Frista dapat gagal.
+          </p>
+          <ul className="mt-3 flex flex-wrap gap-3">
+            {[
+              { number: "0000000000001", qr: "/dev/bpjs-checkin-dummy-qr.png" },
+              { number: "0000000000002", qr: "/dev/bpjs-checkin-dummy-qr-2.png" },
+            ].map(({ number, qr }) => (
+              <li key={number} className="flex items-center gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                <code className="font-semibold text-gray-900">{number}</code>
+                <a href={qr} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">
+                  Lihat QR
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         {/* Stats */}
         <section>
           <div className="flex items-center justify-between mb-3">

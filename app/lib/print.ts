@@ -29,7 +29,7 @@ export interface BpjsCheckinPrintData {
   queueNumber: string;
 }
 
-export function printGeneralLoketQueue(number: string): void {
+export function printGeneralLoketQueue(number: string, loket: 1 | 2): void {
   const frame = document.createElement("iframe");
   frame.hidden = true;
   frame.title = "Cetak antrean loket";
@@ -43,7 +43,8 @@ export function printGeneralLoketQueue(number: string): void {
   page.write(`<!doctype html><html lang="id"><head><meta charset="UTF-8"><title>Antrean Loket</title>
     <style>@page{size:80mm auto;margin:5mm}body{width:70mm;margin:0;text-align:center;font:14px Arial;color:#000}
     h1{font-size:16px}strong{display:block;font-size:52px;margin:16px 0}</style></head><body>
-    <h1>Klinik Syamsinar Maros</h1><p>Antrean Loket Pendaftaran</p><strong>${number}</strong>
+    <h1>KLINIK SYAMSINAR MAROS</h1><p>Jl. Poros Maros-Makassar No.6<br>Telp: 085315403288</p>
+    <hr><strong>${number}</strong><p>Loket Pendaftaran ${loket}</p>
     <p>${new Date().toLocaleString("id-ID")}</p></body></html>`);
   page.close();
   window.setTimeout(() => {

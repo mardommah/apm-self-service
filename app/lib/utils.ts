@@ -39,6 +39,7 @@ export function formatVisitId(id: string): string {
 export const SERVICE_ICONS: Record<string, string> = {
   registrasi: "📋",
   poli_umum: "🩺",
+  vaksinasi: "💉",
   igd: "🚑",
   laboratorium: "🧪",
 };

@@ -47,23 +47,32 @@ function getSimrsPool() {
   return pool;
 }
 
-export async function createGeneralLoketQueue() {
+export async function createGeneralLoketQueue(loket: 1 | 2) {
   const connection = await getSimrsPool().getConnection();
   let locked = false;
   try {
+    const type = loket === 1 ? "Loket" : "CS";
     const [locks] = await connection.query<RowDataPacket[]>("SELECT GET_LOCK('apm_general_loket_queue', 5) AS acquired");
     if (locks[0]?.acquired !== 1) throw new Error("LOKET_QUEUE_BUSY");
     locked = true;
     const [rows] = await connection.query<RowDataPacket[]>(
-      "SELECT COALESCE(MAX(CAST(noantrian AS UNSIGNED)), 0) + 1 AS nextNumber FROM mlite_antrian_loket WHERE type = 'Loket' AND postdate = CURRENT_DATE()",
+      "SELECT COALESCE(MAX(CAST(noantrian AS UNSIGNED)), 0) + 1 AS nextNumber FROM mlite_antrian_loket WHERE type = ? AND postdate = CURRENT_DATE()",
+      [type],
     );
     const number = Number(rows[0]?.nextNumber);
     if (!Number.isSafeInteger(number) || number < 1) throw new Error("LOKET_QUEUE_FAILED");
-    await connection.execute(
-      "INSERT INTO mlite_antrian_loket (type, noantrian, postdate, start_time, end_time) VALUES ('Loket', ?, CURRENT_DATE(), CURRENT_TIME(), '00:00:00')",
-      [number],
+    const url = new URL(process.env.MLITE_GENERAL_PATIENT_URL ?? "");
+    if (!/\/anjungan\/pasien\/?$/.test(url.pathname)) throw new Error("MLITE_NOT_CONFIGURED");
+    url.pathname = url.pathname.replace(/\/pasien\/?$/, "/ajax");
+    url.search = new URLSearchParams({ show: loket === 1 ? "simpanloket" : "simpancs", noantrian: String(number) }).toString();
+    const response = await fetch(url, { method: "POST", signal: AbortSignal.timeout(10_000) });
+    if (!response.ok || response.redirected) throw new Error("LOKET_QUEUE_FAILED");
+    const [saved] = await connection.query<RowDataPacket[]>(
+      "SELECT COUNT(*) AS total FROM mlite_antrian_loket WHERE type = ? AND noantrian = ? AND postdate = CURRENT_DATE()",
+      [type, String(number)],
     );
-    return { number: `A${number}` };
+    if (Number(saved[0]?.total) < 1) throw new Error("LOKET_QUEUE_FAILED");
+    return { number: `${loket === 1 ? "A" : "B"}${number}`, loket };
   } finally {
     try {
       if (locked) await connection.query("SELECT RELEASE_LOCK('apm_general_loket_queue')");

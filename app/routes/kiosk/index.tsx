@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { ServiceCard } from "~/components/kiosk/ServiceCard";
+import { GeneralPatientPanel } from "~/components/kiosk/GeneralPatientPanel";
 import {
   BpjsCameraScanner,
   type BpjsCheckinQrData,
@@ -54,7 +55,6 @@ function KioskPage() {
   const [error, setError] = useState<string>("");
   const [patientTypeOpen, setPatientTypeOpen] = useState(false);
   const [generalPatientOpen, setGeneralPatientOpen] = useState(false);
-  const [generalPatientLoaded, setGeneralPatientLoaded] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingNumber, setBookingNumber] = useState("");
   const [bpjsCardNumber, setBpjsCardNumber] = useState("");
@@ -98,7 +98,6 @@ function KioskPage() {
     }
     if (serviceCode === "poli_umum") {
       setError("");
-      setGeneralPatientLoaded(false);
       setGeneralPatientOpen(true);
       return;
     }
@@ -240,42 +239,10 @@ function KioskPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 max-w-5xl mx-auto w-full gap-6">
-        {generalPatientOpen && (
-          <section
-            className="fixed inset-0 z-[60] flex flex-col bg-white"
-            aria-label="Anjungan pasien umum"
-          >
-            <header className="flex items-center justify-between gap-4 bg-blue-700 px-6 py-4 text-white shadow-lg">
-              <div>
-                <h2 className="text-xl font-bold">Anjungan Pasien Mandiri Pelayanan Rawat Jalan</h2>
-                <p className="text-sm text-blue-100">Klinik Syamsinar Maros</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setGeneralPatientOpen(false)}
-                className="rounded-xl bg-white px-5 py-3 font-bold text-blue-700 shadow hover:bg-blue-50"
-              >
-                Kembali ke Home
-              </button>
-            </header>
-            {generalPatientUrl ? <div className="relative min-h-0 flex-1">
-              {!generalPatientLoaded && (
-                <div className="absolute inset-0 z-10 grid place-items-center bg-white">
-                  <div className="text-center">
-                    <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-700" />
-                    <p className="mt-4 font-semibold text-blue-800">Memuat halaman anjungan...</p>
-                  </div>
-                </div>
-              )}
-              <iframe
-                src={generalPatientUrl}
-                title="Halaman pendaftaran pasien umum"
-                onLoad={() => setGeneralPatientLoaded(true)}
-                className="h-full w-full border-0"
-              />
-            </div> : <p role="alert" className="m-auto text-lg font-semibold text-red-700">Halaman anjungan pasien umum belum dikonfigurasi.</p>}
-          </section>
-        )}
+        {generalPatientOpen && <GeneralPatientPanel
+          url={generalPatientUrl}
+          onClose={() => setGeneralPatientOpen(false)}
+        />}
         {fristaProcessing && (
           <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/70 p-6 backdrop-blur-sm">
             <section
