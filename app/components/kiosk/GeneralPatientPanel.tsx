@@ -35,7 +35,7 @@ export function GeneralPatientPanel({ url, onClose }: { url: string | null; onCl
       role="presentation" onClick={view === "select" ? onClose : undefined}>
       <section role="dialog" aria-modal="true" aria-label="Pilihan pasien umum"
         onClick={(event) => event.stopPropagation()}
-        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-8">
+        className={`relative max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl ${view === "select" ? "p-5 sm:p-8" : ""}`}>
         {view === "select" && <button type="button" onClick={onClose} aria-label="Tutup pilihan pasien umum"
           className="absolute right-5 top-5 grid h-11 w-11 place-items-center rounded-full bg-gray-100 text-2xl text-gray-600">
           ×

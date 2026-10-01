@@ -3,13 +3,14 @@ import { setCookie } from "@tanstack/start-server-core";
 import { checkInBpjsBooking, lookupBpjsBooking } from "../functions/bpjs";
 import { getBookingScannerEnabled, getFristaBypassEnabled } from "../functions/settings";
 import { createVisit, getAllServices } from "../functions/visits";
-import { createGeneralLoketQueue } from "../simrs";
+import { createGeneralLoketQueue, getGeneralLoketPreview } from "../simrs";
 import type { Service } from "../schema";
 import { kioskErrorMessage } from "./kiosk-errors";
 
 type Input =
   | { action: "services" }
   | { action: "general-loket-queue"; loket: 1 | 2 }
+  | { action: "general-loket-preview" }
   | { action: "lookup"; bookingCode?: string; identifier: string }
   | { action: "checkin"; bookingCode: string; cardNumber: string; source: "manual" | "qr" }
   | {
@@ -50,6 +51,13 @@ export const kioskAction = createServerFn({ method: "POST" })
         return { ok: true as const, queue: await createGeneralLoketQueue(data.loket) };
       } catch {
         return { ok: false as const, message: "Nomor antrean loket belum dapat dibuat. Silakan coba lagi." };
+      }
+    }
+    if (data.action === "general-loket-preview") {
+      try {
+        return { ok: true as const, preview: await getGeneralLoketPreview() };
+      } catch {
+        return { ok: false as const, message: "Nomor antrian loket belum dapat dimuat." };
       }
     }
     if (data.action === "lookup") {

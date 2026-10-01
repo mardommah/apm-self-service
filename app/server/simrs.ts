@@ -47,6 +47,23 @@ function getSimrsPool() {
   return pool;
 }
 
+export async function getGeneralLoketPreview() {
+  const [rows] = await getSimrsPool().query<RowDataPacket[]>(
+    `SELECT DATE_FORMAT(CURRENT_DATE(), '%Y-%m-%d') AS date,
+      COALESCE(MAX(CASE WHEN type = 'Loket' THEN CAST(noantrian AS UNSIGNED) END), 0) + 1 AS loket1,
+      COALESCE(MAX(CASE WHEN type = 'CS' THEN CAST(noantrian AS UNSIGNED) END), 0) + 1 AS loket2
+    FROM mlite_antrian_loket WHERE postdate = CURRENT_DATE()`,
+  );
+  const row = rows[0];
+  const loket1 = Number(row?.loket1);
+  const loket2 = Number(row?.loket2);
+  if (!Number.isSafeInteger(loket1) || !Number.isSafeInteger(loket2)) throw new Error("LOKET_QUEUE_FAILED");
+  return { date: String(row.date), queues: [
+    { loket: 1 as const, number: `A${loket1}` },
+    { loket: 2 as const, number: `B${loket2}` },
+  ] };
+}
+
 export async function createGeneralLoketQueue(loket: 1 | 2) {
   const connection = await getSimrsPool().getConnection();
   let locked = false;

@@ -579,15 +579,16 @@ function KioskPage() {
           <h2 className="text-center text-xl font-semibold text-gray-700 mb-3 sm:text-2xl">
             Pilih Layanan
           </h2>
-          <div className="mx-auto grid max-w-4xl grid-flow-col grid-rows-3 auto-cols-fr gap-2 sm:gap-3">
+          <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-2 sm:gap-3">
             {services.map((service) => (
-              <ServiceCard
-                key={service.code}
-                code={service.code}
-                label={service.label}
-                disabled={loading}
-                onClick={() => handleSelectService(service.code)}
-              />
+              <div key={service.code} className="min-w-0 basis-[calc((100%-1rem)/3)] sm:basis-[calc((100%-1.5rem)/3)]">
+                <ServiceCard
+                  code={service.code}
+                  label={service.label}
+                  disabled={loading}
+                  onClick={() => handleSelectService(service.code)}
+                />
+              </div>
             ))}
           </div>
         </div>
