@@ -237,13 +237,27 @@ function KioskPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: result.fristaJob.token, cardNumber }),
       });
-      if (!response.ok) throw new Error("FRISTA_AGENT_FAILED");
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null) as { code?: string; upstreamStatus?: number } | null;
+        throw new Error(failure?.code === "FRISTA_BOT_FAILED" && failure.upstreamStatus
+          ? `FRISTA_BOT_FAILED_${failure.upstreamStatus}`
+          : failure?.code ?? `FRISTA_AGENT_HTTP_${response.status}`);
+      }
       closeBookingModal();
       setCheckinMessage("Uji Frista selesai. Tidak ada booking atau bukti check-in yang dibuat.");
-    } catch {
-      setError(jobCreated
-        ? "Job uji dibuat, tetapi agent atau proses Frista gagal. Pastikan secure agent dan JKN Biometrik Bot berjalan."
-        : "Layanan uji Frista tidak dapat dihubungi.");
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "";
+      setError(!jobCreated
+        ? "Layanan uji Frista tidak dapat dihubungi."
+        : code === "FRISTA_BOT_UNAVAILABLE"
+          ? "Agent berjalan, tetapi JKN Biometrik Bot tidak dapat dihubungi. Periksa FRISTA_BOT_URL pada PC kiosk."
+          : code.startsWith("FRISTA_BOT_FAILED_")
+            ? `JKN Biometrik Bot menolak job uji (HTTP ${code.slice("FRISTA_BOT_FAILED_".length)}). Periksa bot pada PC kiosk.`
+            : code === "AGENT_BUSY"
+              ? "Agent Frista sedang memproses job lain. Tunggu lalu coba lagi."
+              : code === "INVALID_JOB_TOKEN" || code === "JOB_TOKEN_EXPIRED"
+                ? "Token job ditolak agent. Periksa secret bersama dan jam PC kiosk."
+                : `Agent Frista tidak dapat dihubungi atau origin kiosk ditolak. Buka 127.0.0.1:3001/health di PC kiosk; set FRISTA_ALLOWED_ORIGIN=${window.location.origin}.`);
     } finally {
       setFristaProcessing(false);
       setLoading(false);

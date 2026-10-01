@@ -49,7 +49,7 @@ Bun.serve({
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
     const url = new URL(request.url);
     if (url.pathname === "/health") {
-      return Response.json({ ok: true, busy: Boolean(activeVisitId), fristaReady, lastLoginError }, { headers });
+      return Response.json({ ok: true, busy: Boolean(activeVisitId), fristaReady, lastLoginError, allowedOrigin }, { headers });
     }
     if (url.pathname !== "/jobs/frista" || request.method !== "POST") {
       return Response.json({ code: "NOT_FOUND" }, { status: 404, headers });
@@ -67,21 +67,27 @@ Bun.serve({
       activeVisitId = payload.visitId;
       fristaReady = false;
       try {
-        const response = await fetch(upstream, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            username,
-            password,
-            card_number: body.cardNumber,
-            exit: "true",
-            wait: "1000",
-          }),
-          signal: AbortSignal.timeout(Number(process.env.FRISTA_JOB_TIMEOUT_MS ?? 180_000)),
-        });
+        let response: Response;
+        try {
+          response = await fetch(upstream, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              username,
+              password,
+              card_number: body.cardNumber,
+              exit: "true",
+              wait: "1000",
+            }),
+            signal: AbortSignal.timeout(Number(process.env.FRISTA_JOB_TIMEOUT_MS ?? 180_000)),
+          });
+        } catch {
+          lastLoginError = "FRISTA_BOT_UNAVAILABLE";
+          return Response.json({ code: "FRISTA_BOT_UNAVAILABLE" }, { status: 502, headers });
+        }
         if (!response.ok) {
           lastLoginError = `FRISTA_BOT_FAILED_${response.status}`;
-          return Response.json({ code: "FRISTA_BOT_FAILED" }, { status: 502, headers });
+          return Response.json({ code: "FRISTA_BOT_FAILED", upstreamStatus: response.status }, { status: 502, headers });
         }
         fristaReady = true;
         lastLoginError = null;

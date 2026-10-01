@@ -83,7 +83,7 @@ Konfigurasi secure agent pada komputer Windows kiosk:
 ```dotenv
 FRISTA_AGENT_PORT=3001
 FRISTA_AGENT_SHARED_SECRET=secret-yang-sama-dengan-server
-FRISTA_ALLOWED_ORIGIN=http://localhost:3886
+FRISTA_ALLOWED_ORIGIN=http://192.168.1.127:3886
 FRISTA_BOT_URL=http://127.0.0.1:3000/?app=frista
 FRISTA_USERNAME=username-frista
 FRISTA_PASSWORD=password-frista
@@ -140,7 +140,9 @@ QR dummy tidak membuktikan biometrik Frista berhasil. Pengujian biometrik penuh 
 ## Pemeriksaan operasional
 
 1. Pastikan aplikasi kiosk, secure agent, JKN Biometrik Bot, dan Frista berjalan pada mesin yang sesuai.
-2. Pastikan origin kiosk sama persis dengan `FRISTA_ALLOWED_ORIGIN`.
+2. Pada PC yang menampilkan kiosk, buka `http://127.0.0.1:3001/health`. Respons harus berupa JSON dari secure agent. Jika tidak terbuka, jalankan agent di PC itu.
+3. Samakan `FRISTA_ALLOWED_ORIGIN` dengan origin di address bar browser kiosk, termasuk protokol dan port. Jika browser memakai alamat IP berbeda dari `APP_URL`, gunakan alamat browser.
+4. Jika agent dapat dihubungi tetapi bot gagal, periksa `FRISTA_BOT_URL` dan `lastLoginError` pada respons `/health` di PC kiosk.
 3. Pastikan shared secret server dan agent sama serta minimal 32 karakter.
 4. Pastikan printer kiosk dipilih sebagai printer default bila memakai dialog cetak browser.
 5. Uji mode normal setelah mode bypass berhasil, lalu nonaktifkan bypass.
