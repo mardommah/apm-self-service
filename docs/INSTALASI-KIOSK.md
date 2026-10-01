@@ -9,7 +9,7 @@
    .\start-frista-windows.ps1
    ```
 
-   Skrip ini memasang dependency bot bila perlu, lalu menjalankan JKN Biometrik Bot dan secure agent. Jika agent lama masih berjalan, tutup dahulu sebelum menjalankan ulang agar perubahan `.env` terpakai.
+   Skrip ini memasang dependency bot bila perlu, menjalankan JKN Biometrik Bot dan secure agent, lalu membuka jendela Frista. Login dan input nomor kartu dilakukan saat job dari kiosk diterima. Jika agent lama masih berjalan, tutup dahulu sebelum menjalankan ulang agar perubahan `.env` terpakai.
 4. Pada PowerShell yang sama, periksa:
 
    ```powershell
@@ -17,6 +17,6 @@
    ```
 
    Pastikan `ok` bernilai `true` dan `allowedOrigin` sama dengan `http://192.168.1.127:3886`. `fristaReady` dapat bernilai `false` sebelum job pertama.
-5. Untuk auto start, jalankan `.\install-frista-autostart.ps1` sebagai pengguna Windows kiosk, lalu login ulang. Skrip membuat shortcut Startup yang menjalankan bot dan agent setelah login. Jangan pasang auto start agent kedua.
+5. Untuk auto start, jalankan `.\install-frista-autostart.ps1` sebagai pengguna Windows kiosk, lalu login ulang. Skrip membuat shortcut Startup yang menjalankan bot, agent, dan membuka Frista setelah login. Jangan pasang auto start agent kedua.
 
 Log kegagalan tersedia di `C:\frista-services\logs`. Uji dari kiosk: **Pasien BPJS → Pasien Lama → Cek Booking / Uji Frista** dengan nomor dummy 13 digit saat mode pengujian aktif.

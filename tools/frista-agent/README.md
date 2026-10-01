@@ -19,5 +19,5 @@ Jika memakai paket `frista-apm-windows.zip`, ikuti `FRISTA-WINDOWS-README.md` da
 
 Agent hanya bind ke `127.0.0.1`, memvalidasi job bertanda tangan dan kedaluwarsa, menyimpan credential di environment lokal, serta membatasi satu proses Frista pada satu waktu. Agent tidak menentukan keberhasilan face recognition; aplikasi tetap meminta status final dari BPJS melalui mLITE.
 
-Agent membuka dan login Frista hanya saat menerima job agar bot selalu memulai dari state GUI yang didukung. Waktu tunggu login bot dibuat 1000 ms untuk mengurangi jeda. Endpoint `/health` menampilkan hasil job terakhir melalui `fristaReady` dan `lastLoginError`.
+Launcher paket membuka jendela Frista saat login Windows. Agent melakukan login dan memasukkan nomor kartu hanya saat menerima job. Jika jendela utama Frista sudah terbuka, bot memakai jendela tersebut. Waktu tunggu login bot dibuat 1000 ms untuk mengurangi jeda. Endpoint `/health` menampilkan hasil job terakhir melalui `fristaReady` dan `lastLoginError`.
 `/health` juga menampilkan `allowedOrigin`; nilainya harus sama dengan origin di address bar browser kiosk. Membuka `/health` langsung tidak menguji izin origin untuk request dari halaman kiosk.
