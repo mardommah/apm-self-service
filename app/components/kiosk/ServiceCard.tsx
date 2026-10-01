@@ -17,7 +17,7 @@ export function ServiceCard({ code, label, onClick, disabled }: Props) {
       className={[
         "flex flex-col items-center justify-center gap-2 rounded-2xl border-2 p-2 sm:rounded-3xl sm:p-3",
         "transition-all duration-150 select-none",
-        "min-h-[clamp(7rem,18dvh,9.25rem)] w-full",
+        "min-h-[clamp(8rem,21dvh,10.5rem)] w-full",
         disabled
           ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed"
           : "border-blue-200 bg-white hover:border-blue-500 hover:bg-blue-50 active:scale-95 cursor-pointer shadow-sm hover:shadow-md",
