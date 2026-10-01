@@ -65,7 +65,11 @@ export const kioskAction = createServerFn({ method: "POST" })
       try {
         return { ok: true as const, booking: await lookupBpjsBooking(data.identifier, data.bookingCode) };
       } catch (error) {
-        return { ok: false as const, message: kioskErrorMessage(error, "SIMRS_UNAVAILABLE") };
+        return {
+          ok: false as const,
+          code: error instanceof Error ? error.message : "SIMRS_UNAVAILABLE",
+          message: kioskErrorMessage(error, "SIMRS_UNAVAILABLE"),
+        };
       }
     }
     if (data.action === "frista-test") {

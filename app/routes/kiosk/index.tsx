@@ -18,7 +18,7 @@ type FristaJob = { agentUrl: string; token: string };
 type BookingConfirmation = Awaited<ReturnType<typeof lookupBpjsBooking>>;
 type BookingLookupResult =
   | { ok: true; booking: BookingConfirmation }
-  | { ok: false; message: string };
+  | { ok: false; code: string; message: string };
 type CheckinResult =
   | {
       ok: true;
@@ -134,6 +134,10 @@ function KioskPage() {
       try {
         const result = await lookupBookingAction(bpjsCardNumber, qrScanned ? booking : undefined);
         if (!result.ok) {
+          if (fristaBypassEnabled && !qrScanned && result.code === "SIMRS_BOOKING_NOT_FOUND" && /^\d{13}$/.test(bpjsCardNumber)) {
+            await handleFristaDummyTest();
+            return;
+          }
           setError(result.message);
           return;
         }
@@ -469,7 +473,7 @@ function KioskPage() {
               <h2 className="pr-14 text-2xl font-bold text-gray-900">Check-in BPJS</h2>
               <p className="mt-2 text-gray-500">
                 {fristaBypassEnabled
-                  ? "Mode uji Frista aktif. Gunakan nomor kartu dummy 13 digit untuk uji tanpa booking, atau cek booking seperti biasa."
+                  ? "Mode uji Frista aktif. Nomor kartu dummy 13 digit tanpa booking akan diteruskan ke Frista."
                   : bookingScannerEnabled
                     ? "Scan QR check-in Mobile JKN, atau masukkan NIK, nomor RM, atau nomor kartu BPJS."
                     : "Masukkan NIK, nomor RM, atau nomor kartu BPJS. Sistem akan mengecek booking hari ini."}
@@ -568,7 +572,7 @@ function KioskPage() {
               </label>}
               {fristaBypassEnabled && (
                 <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-                  Tombol Uji Frista mengirim nomor dummy ke agent tanpa booking SIM RS, validasi FKTL, atau cetak bukti check-in.
+                  Jika booking tidak ditemukan, nomor kartu 13 digit dipakai untuk uji Frista tanpa validasi FKTL atau cetak bukti check-in.
                 </div>
               )}
               {error && (
@@ -593,16 +597,10 @@ function KioskPage() {
                       ? "Coba Buka Frista"
                       : bookingConfirmation
                         ? "Check-in dan Buka Frista"
-                        : "Cek Booking"}
+                        : fristaBypassEnabled
+                          ? "Cek Booking / Uji Frista"
+                          : "Cek Booking"}
                 </button>
-                {fristaBypassEnabled && !bookingConfirmation && !qrScanned && <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void handleFristaDummyTest()}
-                  className="order-4 col-span-full w-full rounded-xl border-2 border-amber-500 bg-amber-50 px-6 py-4 text-lg font-bold text-amber-900 disabled:opacity-50"
-                >
-                  Uji Frista Tanpa Booking
-                </button>}
               </div>
             </form>
           </div>
