@@ -5,13 +5,14 @@ const messages: Record<string, string> = {
   BPJS_FKTL_TOKEN_MISSING: "Token layanan check-in BPJS tidak tersedia.",
   BOOKING_CODE_INVALID: "Nomor booking tidak valid.",
   BPJS_CARD_INVALID: "Nomor kartu BPJS harus tepat 13 digit.",
+  PATIENT_IDENTIFIER_INVALID: "Masukkan NIK, nomor RM, atau nomor kartu BPJS yang valid.",
   FRISTA_AGENT_NOT_CONFIGURED: "Agent Frista belum dikonfigurasi pada kiosk.",
   SIMRS_NOT_CONFIGURED: "Koneksi database SIM RS belum dikonfigurasi.",
   SIMRS_UNAVAILABLE: "Database SIM RS tidak dapat dihubungi.",
-  SIMRS_BOOKING_NOT_FOUND: "Booking hari ini tidak ditemukan untuk nomor kartu tersebut.",
+  SIMRS_BOOKING_NOT_FOUND: "Booking hari ini tidak ditemukan untuk identitas tersebut.",
   SIMRS_BOOKING_CANCELLED: "Booking hari ini berstatus batal.",
   SIMRS_BOOKING_NOT_AVAILABLE: "Booking tidak tersedia untuk check-in.",
-  SIMRS_BOOKING_MISMATCH: "Kode booking QR tidak cocok dengan booking pasien hari ini.",
+  SIMRS_BOOKING_MISMATCH: "Kode booking tidak cocok dengan booking pasien hari ini.",
 };
 
 export function kioskErrorMessage(error: unknown, fallback: string) {

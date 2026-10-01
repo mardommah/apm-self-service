@@ -3,12 +3,14 @@ import { setCookie } from "@tanstack/start-server-core";
 import { checkInBpjsBooking, lookupBpjsBooking } from "../functions/bpjs";
 import { getBookingScannerEnabled, getFristaBypassEnabled } from "../functions/settings";
 import { createVisit, getAllServices } from "../functions/visits";
+import { createGeneralLoketQueue } from "../simrs";
 import type { Service } from "../schema";
 import { kioskErrorMessage } from "./kiosk-errors";
 
 type Input =
   | { action: "services" }
-  | { action: "lookup"; bookingCode?: string; cardNumber: string }
+  | { action: "general-loket-queue" }
+  | { action: "lookup"; bookingCode?: string; identifier: string }
   | { action: "checkin"; bookingCode: string; cardNumber: string; source: "manual" | "qr" }
   | {
       action: "create";
@@ -40,9 +42,16 @@ export const kioskAction = createServerFn({ method: "POST" })
       } catch {}
       return { services, fristaBypassEnabled, bookingScannerEnabled, generalPatientUrl };
     }
+    if (data.action === "general-loket-queue") {
+      try {
+        return { ok: true as const, queue: await createGeneralLoketQueue() };
+      } catch {
+        return { ok: false as const, message: "Nomor antrean loket belum dapat dibuat. Silakan coba lagi." };
+      }
+    }
     if (data.action === "lookup") {
       try {
-        return { ok: true as const, booking: await lookupBpjsBooking(data.cardNumber, data.bookingCode) };
+        return { ok: true as const, booking: await lookupBpjsBooking(data.identifier, data.bookingCode) };
       } catch (error) {
         return { ok: false as const, message: kioskErrorMessage(error, "SIMRS_UNAVAILABLE") };
       }

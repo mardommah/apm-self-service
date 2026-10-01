@@ -47,7 +47,38 @@ function getSimrsPool() {
   return pool;
 }
 
-export async function findTodaySimrsBookingByCard(cardNumber: string, bookingCode?: string) {
+export async function createGeneralLoketQueue() {
+  const connection = await getSimrsPool().getConnection();
+  let locked = false;
+  try {
+    const [locks] = await connection.query<RowDataPacket[]>("SELECT GET_LOCK('apm_general_loket_queue', 5) AS acquired");
+    if (locks[0]?.acquired !== 1) throw new Error("LOKET_QUEUE_BUSY");
+    locked = true;
+    const [rows] = await connection.query<RowDataPacket[]>(
+      "SELECT COALESCE(MAX(CAST(noantrian AS UNSIGNED)), 0) + 1 AS nextNumber FROM mlite_antrian_loket WHERE type = 'Loket' AND postdate = CURRENT_DATE()",
+    );
+    const number = Number(rows[0]?.nextNumber);
+    if (!Number.isSafeInteger(number) || number < 1) throw new Error("LOKET_QUEUE_FAILED");
+    await connection.execute(
+      "INSERT INTO mlite_antrian_loket (type, noantrian, postdate, start_time, end_time) VALUES ('Loket', ?, CURRENT_DATE(), CURRENT_TIME(), '00:00:00')",
+      [number],
+    );
+    return { number: `A${number}` };
+  } finally {
+    try {
+      if (locked) await connection.query("SELECT RELEASE_LOCK('apm_general_loket_queue')");
+    } finally {
+      connection.release();
+    }
+  }
+}
+
+export async function findTodaySimrsBooking(identifier: string, bookingCode?: string) {
+  const field = /^\d{16}$/.test(identifier)
+    ? "p.no_ktp"
+    : /^\d{13}$/.test(identifier)
+      ? "r.nomorkartu"
+      : "r.norm";
   let rows: SimrsBookingRow[];
   try {
     [rows] = await getSimrsPool().execute<SimrsBookingRow[]>(
@@ -64,10 +95,10 @@ export async function findTodaySimrsBookingByCard(cardNumber: string, bookingCod
       LEFT JOIN pasien p ON p.no_rkm_medis = r.norm
       LEFT JOIN poliklinik pl ON pl.kd_poli = r.kodepoli
       WHERE r.tanggalperiksa = CURRENT_DATE()
-        AND r.nomorkartu = ?
+        AND ${field} = ?
         AND (? IS NULL OR r.nobooking = ?)
       LIMIT 1`,
-      [cardNumber, bookingCode ?? null, bookingCode ?? null],
+      [identifier, bookingCode ?? null, bookingCode ?? null],
     );
   } catch (error) {
     if (error instanceof Error && error.message === "SIMRS_NOT_CONFIGURED") throw error;

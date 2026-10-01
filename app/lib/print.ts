@@ -29,6 +29,30 @@ export interface BpjsCheckinPrintData {
   queueNumber: string;
 }
 
+export function printGeneralLoketQueue(number: string): void {
+  const frame = document.createElement("iframe");
+  frame.hidden = true;
+  frame.title = "Cetak antrean loket";
+  document.body.appendChild(frame);
+  const page = frame.contentDocument;
+  if (!page) {
+    frame.remove();
+    throw new Error("PRINT_UNAVAILABLE");
+  }
+  page.open();
+  page.write(`<!doctype html><html lang="id"><head><meta charset="UTF-8"><title>Antrean Loket</title>
+    <style>@page{size:80mm auto;margin:5mm}body{width:70mm;margin:0;text-align:center;font:14px Arial;color:#000}
+    h1{font-size:16px}strong{display:block;font-size:52px;margin:16px 0}</style></head><body>
+    <h1>Klinik Syamsinar Maros</h1><p>Antrean Loket Pendaftaran</p><strong>${number}</strong>
+    <p>${new Date().toLocaleString("id-ID")}</p></body></html>`);
+  page.close();
+  window.setTimeout(() => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    window.setTimeout(() => frame.remove(), 1_000);
+  }, 200);
+}
+
 /** Print proof only after the Frista agent confirms the process has finished. */
 export function printBpjsCheckin(data: BpjsCheckinPrintData): void {
   const escapeHtml = (value: string) =>

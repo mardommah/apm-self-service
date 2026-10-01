@@ -4,7 +4,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "../db";
 import { bpjsWorkflows, services, visits } from "../schema";
-import { findTodaySimrsBookingByCard } from "../simrs";
+import { findTodaySimrsBooking } from "../simrs";
 import { getFristaBypassEnabled } from "./settings";
 
 export type PatientIdentity = {
@@ -124,10 +124,10 @@ function createSignedFristaJob(jobId: string, cardNumber: string) {
   return { agentUrl, token: `${encoded}.${signature}` };
 }
 
-export async function lookupBpjsBooking(cardNumber: string, scannedBookingCode?: string) {
-  if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
+export async function lookupBpjsBooking(identifier: string, scannedBookingCode?: string) {
+  if (!/^\d{1,32}$/.test(identifier)) throw new Error("PATIENT_IDENTIFIER_INVALID");
   try {
-    return await findTodaySimrsBookingByCard(cardNumber, scannedBookingCode?.trim());
+    return await findTodaySimrsBooking(identifier, scannedBookingCode?.trim());
   } catch (error) {
     if (scannedBookingCode && error instanceof Error && error.message === "SIMRS_BOOKING_NOT_FOUND") {
       throw new Error("SIMRS_BOOKING_MISMATCH");
@@ -145,7 +145,7 @@ export async function checkInBpjsBooking(
   if (!/^\d{13}$/.test(cardNumber)) throw new Error("BPJS_CARD_INVALID");
   const bookingData = await lookupBpjsBooking(
     cardNumber,
-    source === "qr" ? bookingCode : undefined,
+    bookingCode,
   );
   if (bookingData.status.trim().toLowerCase() !== "belum") {
     throw new Error("SIMRS_BOOKING_NOT_AVAILABLE");

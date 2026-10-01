@@ -39,8 +39,8 @@ const createVisitAction = (
   }) as Promise<CreateVisitResult>;
 const checkinAction = (bookingCode: string, cardNumber: string, source: "manual" | "qr") =>
   kioskAction({ data: { action: "checkin", bookingCode, cardNumber, source } }) as Promise<CheckinResult>;
-const lookupBookingAction = (cardNumber: string, bookingCode?: string) =>
-  kioskAction({ data: { action: "lookup", cardNumber, bookingCode } }) as Promise<BookingLookupResult>;
+const lookupBookingAction = (identifier: string, bookingCode?: string) =>
+  kioskAction({ data: { action: "lookup", identifier, bookingCode } }) as Promise<BookingLookupResult>;
 
 export const Route = createFileRoute("/kiosk/")({
   loader: (): Promise<KioskData> => getServicesAction(),
@@ -97,11 +97,8 @@ function KioskPage() {
       return;
     }
     if (serviceCode === "poli_umum") {
-      if (!generalPatientUrl) {
-        setError("Halaman anjungan pasien umum belum dikonfigurasi.");
-        return;
-      }
       setError("");
+      setGeneralPatientLoaded(false);
       setGeneralPatientOpen(true);
       return;
     }
@@ -111,8 +108,8 @@ function KioskPage() {
   async function handleBpjsCheckin(event: React.FormEvent) {
     event.preventDefault();
     const booking = bookingNumber.trim();
-    if (!/^\d{13}$/.test(bpjsCardNumber)) {
-      setError("Nomor kartu BPJS harus tepat 13 digit.");
+    if (!/^\d{1,32}$/.test(bpjsCardNumber)) {
+      setError("Masukkan NIK, nomor RM, atau nomor kartu BPJS yang valid.");
       bpjsCardInputRef.current?.focus();
       return;
     }
@@ -154,7 +151,7 @@ function KioskPage() {
       let job = fristaJob;
       let validationPassed = fristaValidationPassed;
       if (!job) {
-        const result = await checkinAction(booking, bpjsCardNumber, source);
+        const result = await checkinAction(booking, bookingConfirmation.cardNumber, source);
         if (!result.ok) {
           setError(result.message);
           return;
@@ -173,7 +170,7 @@ function KioskPage() {
       const response = await fetch(`${job.agentUrl}/jobs/frista`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: job.token, cardNumber: bpjsCardNumber }),
+        body: JSON.stringify({ token: job.token, cardNumber: bookingConfirmation.cardNumber }),
       }).catch(() => {
         throw new Error("FRISTA_AGENT_FAILED");
       });
@@ -243,27 +240,25 @@ function KioskPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 max-w-5xl mx-auto w-full gap-6">
-        {generalPatientUrl && (
+        {generalPatientOpen && (
           <section
-            className={`${generalPatientOpen ? "flex" : "hidden"} fixed inset-0 z-[60] flex-col bg-white`}
+            className="fixed inset-0 z-[60] flex flex-col bg-white"
             aria-label="Anjungan pasien umum"
           >
             <header className="flex items-center justify-between gap-4 bg-blue-700 px-6 py-4 text-white shadow-lg">
               <div>
-                <h2 className="text-xl font-bold">Pendaftaran Pasien Umum</h2>
-                <p className="text-sm text-blue-100">Selesaikan pendaftaran pada halaman anjungan.</p>
+                <h2 className="text-xl font-bold">Anjungan Pasien Mandiri Pelayanan Rawat Jalan</h2>
+                <p className="text-sm text-blue-100">Klinik Syamsinar Maros</p>
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setGeneralPatientOpen(false);
-                }}
+                onClick={() => setGeneralPatientOpen(false)}
                 className="rounded-xl bg-white px-5 py-3 font-bold text-blue-700 shadow hover:bg-blue-50"
               >
                 Kembali ke Home
               </button>
             </header>
-            <div className="relative min-h-0 flex-1">
+            {generalPatientUrl ? <div className="relative min-h-0 flex-1">
               {!generalPatientLoaded && (
                 <div className="absolute inset-0 z-10 grid place-items-center bg-white">
                   <div className="text-center">
@@ -278,7 +273,7 @@ function KioskPage() {
                 onLoad={() => setGeneralPatientLoaded(true)}
                 className="h-full w-full border-0"
               />
-            </div>
+            </div> : <p role="alert" className="m-auto text-lg font-semibold text-red-700">Halaman anjungan pasien umum belum dikonfigurasi.</p>}
           </section>
         )}
         {fristaProcessing && (
@@ -470,8 +465,8 @@ function KioskPage() {
                 {fristaBypassEnabled
                   ? "Mode uji Frista aktif. Booking SIM RS tetap dicek; validasi FKTL dilewati sementara."
                   : bookingScannerEnabled
-                    ? "Scan QR check-in Mobile JKN, atau masukkan nomor kartu BPJS secara manual."
-                    : "Masukkan nomor kartu BPJS. Sistem akan mengecek booking hari ini."}
+                    ? "Scan QR check-in Mobile JKN, atau masukkan NIK, nomor RM, atau nomor kartu BPJS."
+                    : "Masukkan NIK, nomor RM, atau nomor kartu BPJS. Sistem akan mengecek booking hari ini."}
               </p>
               <div className={`mt-6 grid items-start gap-6 ${
                 bookingScannerEnabled && cameraScannerOpen
@@ -511,7 +506,7 @@ function KioskPage() {
                         setQrScanned(false);
                         setBpjsCardNumber(value);
                       }}
-                      maxLength={13}
+                      maxLength={32}
                       mode="numeric"
                       disabled={loading}
                     />
@@ -522,7 +517,7 @@ function KioskPage() {
                   className={bookingScannerEnabled && cameraScannerOpen ? "" : "order-1"}
                 >
               <label className="grid gap-2 font-semibold text-gray-700">
-                Nomor Kartu BPJS
+                NIK, Nomor RM, atau Nomor Kartu BPJS
                 <input
                   autoFocus
                   ref={bpjsCardInputRef}
@@ -534,7 +529,7 @@ function KioskPage() {
                     setBpjsCardNumber(event.target.value.replace(/\D/g, ""));
                   }}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" && /^\d{13}$/.test(bpjsCardNumber)) {
+                    if (event.key === "Enter" && /^\d{1,32}$/.test(bpjsCardNumber)) {
                       event.preventDefault();
                       setError("");
                       void handleBpjsCheckin(event as unknown as React.FormEvent);
@@ -542,10 +537,10 @@ function KioskPage() {
                   }}
                   autoComplete="off"
                   inputMode="none"
-                  maxLength={13}
+                  maxLength={32}
                   required
                   className="rounded-xl border-2 border-gray-200 p-4 text-xl"
-                  placeholder="13 digit nomor kartu BPJS"
+                  placeholder="Masukkan NIK, nomor RM, atau kartu BPJS"
                 />
               </label>
               {qrScanned && checkinQrData && <label className="mt-4 grid gap-2 font-semibold text-gray-700">
