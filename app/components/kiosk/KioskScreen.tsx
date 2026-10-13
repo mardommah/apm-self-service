@@ -1,0 +1,668 @@
+import { useNavigate } from "@tanstack/react-router";
+import { useRef, useState } from "react";
+import { ServiceCard } from "~/components/kiosk/ServiceCard";
+import { GeneralPatientPanel } from "~/components/kiosk/GeneralPatientPanel";
+import {
+  BpjsCameraScanner,
+  type BpjsCheckinQrData,
+} from "~/components/kiosk/BpjsCameraScanner";
+import { TouchKeyboard } from "~/components/kiosk/TouchKeyboard";
+import { printBpjsCheckin } from "~/lib/print";
+import { lookupBpjsBooking } from "~/server/functions/bpjs";
+import { createVisit } from "~/server/functions/visits";
+import { kioskAction, type KioskData } from "~/server/actions/kiosk";
+
+// ─── Server functions ─────────────────────────────────────────────────────────
+type CreateVisitResult = Awaited<ReturnType<typeof createVisit>>;
+type FristaJob = { agentUrl: string; token: string };
+type BookingConfirmation = Awaited<ReturnType<typeof lookupBpjsBooking>>;
+type BookingLookupResult =
+  | { ok: true; booking: BookingConfirmation }
+  | { ok: false; code: string; message: string };
+type CheckinResult =
+  | {
+      ok: true;
+      message: string;
+      fristaJob: FristaJob;
+      validationPassed: boolean;
+      bookingData: BpjsCheckinQrData | null;
+    }
+  | { ok: false; message: string };
+type FristaTestResult =
+  | { ok: true; fristaJob: FristaJob }
+  | { ok: false; message: string };
+
+export const getServicesAction = () =>
+  kioskAction({ data: { action: "services" } }) as Promise<KioskData>;
+const createVisitAction = (
+  serviceCode: string,
+  registration?: { destinationServiceCode: string; patientStatus: "baru" | "lama" },
+) =>
+  kioskAction({
+    data: { action: "create", serviceCode, ...registration },
+  }) as Promise<CreateVisitResult>;
+const checkinAction = (bookingCode: string, cardNumber: string, source: "manual" | "qr") =>
+  kioskAction({ data: { action: "checkin", bookingCode, cardNumber, source } }) as Promise<CheckinResult>;
+const lookupBookingAction = (identifier: string, bookingCode?: string) =>
+  kioskAction({ data: { action: "lookup", identifier, bookingCode } }) as Promise<BookingLookupResult>;
+const createFristaTestAction = (cardNumber: string) =>
+  kioskAction({ data: { action: "frista-test", cardNumber } }) as Promise<FristaTestResult>;
+
+type Props = {
+  data: KioskData;
+  /** Kiosk 2: BPJS skips patient type, booking check, and Frista; it creates a visit and goes straight to the print page. */
+  bpjsDirectPrint?: boolean;
+};
+
+export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
+  const { services, fristaBypassEnabled, bookingScannerEnabled, generalPatientUrl } = data;
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>("");
+  const [patientTypeOpen, setPatientTypeOpen] = useState(false);
+  const [generalPatientOpen, setGeneralPatientOpen] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingNumber, setBookingNumber] = useState("");
+  const [bpjsCardNumber, setBpjsCardNumber] = useState("");
+  const [cameraScannerOpen, setCameraScannerOpen] = useState(false);
+  const [checkinMessage, setCheckinMessage] = useState("");
+  const [fristaJob, setFristaJob] = useState<FristaJob | null>(null);
+  const [fristaProcessing, setFristaProcessing] = useState(false);
+  const [fristaValidationPassed, setFristaValidationPassed] = useState(true);
+  const [checkinQrData, setCheckinQrData] = useState<BpjsCheckinQrData | null>(null);
+  const [qrScanned, setQrScanned] = useState(false);
+  const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
+  const [bookingConfirmationOpen, setBookingConfirmationOpen] = useState(false);
+  const bpjsCardInputRef = useRef<HTMLInputElement>(null);
+
+  function resetBookingConfirmation() {
+    setBookingConfirmation(null);
+    setBookingConfirmationOpen(false);
+  }
+
+  function closeBookingModal() {
+    setBookingOpen(false);
+    setCameraScannerOpen(false);
+    setBookingNumber("");
+    setBpjsCardNumber("");
+    setFristaJob(null);
+    setFristaValidationPassed(true);
+    setCheckinQrData(null);
+    setQrScanned(false);
+    resetBookingConfirmation();
+    setFristaProcessing(false);
+    setError("");
+  }
+
+  async function handleSelectService(serviceCode: string) {
+    if (loading) return;
+    if (serviceCode === "registrasi" && !bpjsDirectPrint) {
+      setError("");
+      setCheckinMessage("");
+      setPatientTypeOpen(true);
+      return;
+    }
+    if (serviceCode === "poli_umum") {
+      setError("");
+      setGeneralPatientOpen(true);
+      return;
+    }
+    await submitVisit(serviceCode);
+  }
+
+  async function handleBpjsCheckin(event: React.FormEvent) {
+    event.preventDefault();
+    const booking = bookingNumber.trim();
+    if (!/^\d{1,32}$/.test(bpjsCardNumber)) {
+      setError("Masukkan NIK, nomor RM, atau nomor kartu BPJS yang valid.");
+      bpjsCardInputRef.current?.focus();
+      return;
+    }
+    if (qrScanned && !booking) {
+      setError("Masukkan nomor booking.");
+      return;
+    }
+    if (
+      qrScanned && checkinQrData &&
+      (checkinQrData.bookingCode !== booking || checkinQrData.cardNumber !== bpjsCardNumber)
+    ) {
+      setError("Scan QR check-in agar data bukti cetak tersedia dan sesuai.");
+      return;
+    }
+    if (!bookingConfirmation) {
+      setLoading(true);
+      setError("");
+      try {
+        const result = await lookupBookingAction(bpjsCardNumber, qrScanned ? booking : undefined);
+        if (!result.ok) {
+          if (fristaBypassEnabled && !qrScanned && result.code === "SIMRS_BOOKING_NOT_FOUND" && /^\d{13}$/.test(bpjsCardNumber)) {
+            await handleFristaDummyTest();
+            return;
+          }
+          setError(result.message);
+          return;
+        }
+        setBookingConfirmation(result.booking);
+        setBookingNumber(result.booking.bookingCode);
+        setCheckinQrData(result.booking);
+        setBookingConfirmationOpen(true);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setCheckinMessage("");
+    const source = qrScanned ? "qr" : "manual";
+    let printData = checkinQrData;
+    try {
+      let job = fristaJob;
+      let validationPassed = fristaValidationPassed;
+      if (!job) {
+        const result = await checkinAction(booking, bookingConfirmation.cardNumber, source);
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        job = result.fristaJob;
+        validationPassed = result.validationPassed;
+        printData = result.bookingData ?? printData;
+        if (result.bookingData) setCheckinQrData(result.bookingData);
+        setFristaValidationPassed(result.validationPassed);
+        setFristaJob(job);
+        setCameraScannerOpen(false);
+        setCheckinMessage("Check-in berhasil. Membuka Frista...");
+      }
+
+      setFristaProcessing(true);
+      const response = await fetch(`${job.agentUrl}/jobs/frista`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: job.token, cardNumber: bookingConfirmation.cardNumber }),
+      }).catch(() => {
+        throw new Error("FRISTA_AGENT_FAILED");
+      });
+      if (!response.ok && !fristaBypassEnabled) {
+        throw new Error("FRISTA_AGENT_FAILED");
+      }
+      if (printData) printBpjsCheckin(printData);
+      setBookingOpen(false);
+      setBookingNumber("");
+      setBpjsCardNumber("");
+      setCameraScannerOpen(false);
+      setFristaJob(null);
+      setFristaValidationPassed(true);
+      setCheckinQrData(null);
+      setQrScanned(false);
+      resetBookingConfirmation();
+      setCheckinMessage(
+        printData
+          ? validationPassed && response.ok
+            ? "Proses Frista selesai. Bukti check-in telah dikirim ke printer."
+            : "Mode dev: validasi atau Frista berstatus gagal. Bukti QR tetap dikirim ke printer."
+          : validationPassed && response.ok
+            ? "Proses Frista selesai."
+            : "Mode dev: validasi atau Frista berstatus gagal. Proses manual selesai.",
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error && cause.message === "FRISTA_AGENT_FAILED"
+          ? "Check-in berhasil, tetapi Frista gagal dibuka. Pastikan secure agent dan JKN Biometrik Bot berjalan, lalu coba lagi."
+          : "Layanan check-in BPJS tidak dapat dihubungi.",
+      );
+    } finally {
+      setFristaProcessing(false);
+      setLoading(false);
+    }
+  }
+
+  async function handleFristaDummyTest() {
+    const cardNumber = bpjsCardNumber.trim();
+    if (!/^\d{13}$/.test(cardNumber)) {
+      setError("Uji Frista memerlukan nomor kartu BPJS dummy tepat 13 digit.");
+      bpjsCardInputRef.current?.focus();
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setCheckinMessage("");
+    let jobCreated = false;
+    try {
+      const result = await createFristaTestAction(cardNumber);
+      if (!result.ok) { setError(result.message); return; }
+      jobCreated = true;
+      setFristaProcessing(true);
+      const response = await fetch(`${result.fristaJob.agentUrl}/jobs/frista`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: result.fristaJob.token, cardNumber }),
+      });
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null) as { code?: string; upstreamStatus?: number } | null;
+        throw new Error(failure?.code === "FRISTA_BOT_FAILED" && failure.upstreamStatus
+          ? `FRISTA_BOT_FAILED_${failure.upstreamStatus}`
+          : failure?.code ?? `FRISTA_AGENT_HTTP_${response.status}`);
+      }
+      closeBookingModal();
+      setCheckinMessage("Uji Frista selesai. Tidak ada booking atau bukti check-in yang dibuat.");
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "";
+      setError(!jobCreated
+        ? "Layanan uji Frista tidak dapat dihubungi."
+        : code === "FRISTA_BOT_UNAVAILABLE"
+          ? "Agent berjalan, tetapi JKN Biometrik Bot tidak dapat dihubungi. Periksa FRISTA_BOT_URL pada PC kiosk."
+          : code.startsWith("FRISTA_BOT_FAILED_")
+            ? `JKN Biometrik Bot menolak job uji (HTTP ${code.slice("FRISTA_BOT_FAILED_".length)}). Periksa bot pada PC kiosk.`
+            : code === "AGENT_BUSY"
+              ? "Agent Frista sedang memproses job lain. Tunggu lalu coba lagi."
+              : code === "INVALID_JOB_TOKEN" || code === "JOB_TOKEN_EXPIRED"
+                ? "Token job ditolak agent. Periksa secret bersama dan jam PC kiosk."
+                : `Agent Frista tidak dapat dihubungi atau origin kiosk ditolak. Buka 127.0.0.1:3001/health di PC kiosk; set FRISTA_ALLOWED_ORIGIN=${window.location.origin}.`);
+    } finally {
+      setFristaProcessing(false);
+      setLoading(false);
+    }
+  }
+
+  async function submitVisit(
+    serviceCode: string,
+    registration?: { destinationServiceCode: string; patientStatus: "baru" | "lama" },
+  ) {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await createVisitAction(serviceCode, registration);
+      navigate({
+        to: "/kiosk/qr/$visitId",
+        params: { visitId: result.id },
+        search: bpjsDirectPrint ? { from: "kiosk2" } : {},
+      });
+    } catch {
+      setError("Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="kiosk-fullscreen flex flex-col bg-gray-50 min-h-dvh">
+      {/* Header */}
+      <div className="bg-blue-700 text-white px-4 py-3 shadow-lg flex items-center justify-between gap-4 sm:px-8 sm:py-5">
+        <div>
+          <h1 className="text-lg font-bold sm:text-2xl">Klinik Syamsinar Maros Self Service</h1>
+          <p className="text-blue-200 text-sm">Pilih layanan yang Anda tuju</p>
+        </div>
+        <img
+          src="/logo-klinik-s.png"
+          alt="Klinik Syamsinar"
+          className="h-10 w-auto max-w-[30%] rounded-xl bg-white object-contain sm:h-16"
+        />
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-3 py-3 sm:px-8 max-w-7xl mx-auto w-full gap-4">
+        {generalPatientOpen && <GeneralPatientPanel
+          url={generalPatientUrl}
+          onClose={() => setGeneralPatientOpen(false)}
+        />}
+        {fristaProcessing && (
+          <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/70 p-6 backdrop-blur-sm">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="frista-processing-title"
+              className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl"
+            >
+              <div
+                aria-hidden="true"
+                className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-blue-100 border-t-blue-700"
+              />
+              <h2 id="frista-processing-title" className="mt-5 text-2xl font-bold text-gray-900">
+                Proses Frista Berjalan
+              </h2>
+              <p className="mt-3 text-gray-600">
+                Selesaikan verifikasi biometrik pada aplikasi Frista. Jangan tutup atau muat ulang halaman ini.
+              </p>
+              <p className="mt-4 rounded-xl bg-blue-50 p-3 text-sm font-semibold text-blue-800">
+                Bukti check-in dicetak otomatis setelah proses selesai.
+              </p>
+            </section>
+          </div>
+        )}
+        {patientTypeOpen && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-6 backdrop-blur-sm"
+            role="presentation"
+            onClick={() => setPatientTypeOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="patient-type-title"
+              onClick={(event) => event.stopPropagation()}
+              className="relative w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl"
+            >
+              <button
+                type="button"
+                aria-label="Tutup pilihan jenis pasien"
+                onClick={() => setPatientTypeOpen(false)}
+                className="absolute right-5 top-5 grid h-11 w-11 place-items-center rounded-full bg-gray-100 text-2xl text-gray-600"
+              >
+                ×
+              </button>
+              <h2 id="patient-type-title" className="pr-14 text-2xl font-bold text-gray-900">
+                Pilih Jenis Pasien BPJS
+              </h2>
+              <p className="mt-2 text-gray-500">Apakah pasien sudah pernah terdaftar di klinik?</p>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    setPatientTypeOpen(false);
+                    void submitVisit("registrasi");
+                  }}
+                  className="rounded-2xl border-2 border-green-200 bg-green-50 px-6 py-6 text-lg font-bold text-green-800 hover:border-green-500"
+                >
+                  Pasien Baru
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    setPatientTypeOpen(false);
+                    setCameraScannerOpen(bookingScannerEnabled);
+                    setBookingOpen(true);
+                  }}
+                  className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-6 py-6 text-lg font-bold text-blue-800 hover:border-blue-500"
+                >
+                  Pasien Lama
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {bookingConfirmationOpen && bookingConfirmation && (() => {
+          const normalizedStatus = bookingConfirmation.status.trim().toLowerCase();
+          const available = normalizedStatus === "belum";
+          const cancelled = normalizedStatus === "batal";
+          const closeConfirmation = () => {
+            setBookingConfirmationOpen(false);
+            if (!available) setBookingConfirmation(null);
+          };
+          return (
+            <div
+              className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/70 p-6 backdrop-blur-sm"
+              role="presentation"
+              onClick={closeConfirmation}
+            >
+              <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="booking-confirmation-title"
+                onClick={(event) => event.stopPropagation()}
+                className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-2xl"
+              >
+                <div className={`rounded-2xl border p-5 ${
+                  cancelled
+                    ? "border-red-300 bg-red-50"
+                    : available
+                      ? "border-green-300 bg-green-50"
+                      : "border-amber-300 bg-amber-50"
+                }`}>
+                  <p className={`text-sm font-bold uppercase tracking-wide ${
+                    cancelled ? "text-red-700" : available ? "text-green-700" : "text-amber-700"
+                  }`}>
+                    Status booking: {bookingConfirmation.status || "Tidak diketahui"}
+                  </p>
+                  <h2 id="booking-confirmation-title" className="mt-2 text-2xl font-bold text-gray-900">
+                    {available ? "Konfirmasi data pasien" : "Detail booking pasien"}
+                  </h2>
+                  <dl className="mt-4 grid gap-3 text-gray-800 sm:grid-cols-2">
+                    <div className="sm:col-span-2"><dt className="text-sm text-gray-500">Nama pasien</dt><dd className="font-bold">{bookingConfirmation.patientName}</dd></div>
+                    <div><dt className="text-sm text-gray-500">Nomor kartu BPJS</dt><dd className="font-bold">{bookingConfirmation.cardNumber}</dd></div>
+                    <div><dt className="text-sm text-gray-500">Nomor rekam medis</dt><dd className="font-bold">{bookingConfirmation.medicalRecordNumber}</dd></div>
+                    <div><dt className="text-sm text-gray-500">Nomor booking</dt><dd className="font-bold">{bookingConfirmation.bookingCode}</dd></div>
+                    <div><dt className="text-sm text-gray-500">Nomor rujukan</dt><dd className="font-bold">{bookingConfirmation.referralNumber}</dd></div>
+                    <div><dt className="text-sm text-gray-500">Poli tujuan</dt><dd className="font-bold">{bookingConfirmation.clinicName}</dd></div>
+                    <div><dt className="text-sm text-gray-500">Nomor antrean</dt><dd className="font-bold">{bookingConfirmation.queueNumber}</dd></div>
+                  </dl>
+                  {!available && (
+                    <p className={`mt-4 font-semibold ${cancelled ? "text-red-700" : "text-amber-700"}`}>
+                      Booking berstatus {bookingConfirmation.status || "tidak diketahui"}; check-in tidak dapat dilanjutkan.
+                    </p>
+                  )}
+                </div>
+                {!available ? (
+                  <button
+                    type="button"
+                    onClick={closeConfirmation}
+                    className="mt-5 w-full rounded-xl bg-gray-800 px-5 py-4 text-lg font-bold text-white"
+                  >
+                    Tutup
+                  </button>
+                ) : (
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBookingConfirmation(null);
+                        setBookingConfirmationOpen(false);
+                      }}
+                      className="rounded-xl border-2 border-gray-300 px-5 py-4 font-bold text-gray-700"
+                    >
+                      Tidak
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBookingConfirmationOpen(false)}
+                      className="rounded-xl bg-blue-700 px-5 py-4 font-bold text-white"
+                    >
+                      Ya, data benar
+                    </button>
+                  </div>
+                )}
+              </section>
+            </div>
+          );
+        })()}
+
+        {bookingOpen && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-6 backdrop-blur-sm"
+            role="presentation"
+            onClick={closeBookingModal}
+          >
+            <form
+              onSubmit={handleBpjsCheckin}
+              onClick={(event) => event.stopPropagation()}
+              className={`relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8 ${
+                bookingScannerEnabled && cameraScannerOpen ? "max-w-6xl" : "max-w-2xl"
+              }`}
+            >
+              <button
+                type="button"
+                aria-label="Tutup input nomor booking"
+                onClick={closeBookingModal}
+                className="absolute right-5 top-5 grid h-11 w-11 place-items-center rounded-full bg-gray-100 text-2xl text-gray-600"
+              >
+                ×
+              </button>
+              <h2 className="pr-14 text-2xl font-bold text-gray-900">Check-in BPJS</h2>
+              <p className="mt-2 text-gray-500">
+                {fristaBypassEnabled
+                  ? "Mode uji Frista aktif. Nomor kartu dummy 13 digit tanpa booking akan diteruskan ke Frista."
+                  : bookingScannerEnabled
+                    ? "Scan QR check-in Mobile JKN, atau masukkan NIK, nomor RM, atau nomor kartu BPJS."
+                    : "Masukkan NIK, nomor RM, atau nomor kartu BPJS. Sistem akan mengecek booking hari ini."}
+              </p>
+              <div className={`mt-6 grid items-start gap-6 ${
+                bookingScannerEnabled && cameraScannerOpen
+                  ? "lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]"
+                  : "grid-cols-1"
+              }`}>
+                <section
+                  aria-label="Kamera pemindai QR"
+                  className={bookingScannerEnabled && cameraScannerOpen ? "" : "order-2"}
+                >
+                  {bookingScannerEnabled && <button
+                    type="button"
+                    onClick={() => setCameraScannerOpen((open) => !open)}
+                    className="mb-4 rounded-xl border-2 border-blue-200 px-4 py-3 font-bold text-blue-700"
+                  >
+                    {cameraScannerOpen ? "Gunakan Input Manual" : "Scan dengan Kamera"}
+                  </button>}
+                  {bookingScannerEnabled && cameraScannerOpen && (
+                    <BpjsCameraScanner
+                      onCheckinScan={(data) => {
+                        const { bookingCode, cardNumber } = data;
+                        resetBookingConfirmation();
+                        setBookingNumber(bookingCode);
+                        setBpjsCardNumber(cardNumber);
+                        setCheckinQrData(data);
+                        setQrScanned(true);
+                        setCameraScannerOpen(false);
+                      }}
+                    />
+                  )}
+                  {(!bookingScannerEnabled || !cameraScannerOpen) && (
+                    <TouchKeyboard
+                      value={bpjsCardNumber}
+                      onChange={(value) => {
+                        resetBookingConfirmation();
+                        setCheckinQrData(null);
+                        setQrScanned(false);
+                        setBpjsCardNumber(value);
+                      }}
+                      maxLength={32}
+                      mode="numeric"
+                      disabled={loading}
+                    />
+                  )}
+                </section>
+                <section
+                  aria-label="Form check-in BPJS"
+                  className={bookingScannerEnabled && cameraScannerOpen ? "" : "order-1"}
+                >
+              <label className="grid gap-2 font-semibold text-gray-700">
+                NIK, Nomor RM, atau Nomor Kartu BPJS
+                <input
+                  autoFocus
+                  ref={bpjsCardInputRef}
+                  value={bpjsCardNumber}
+                  onChange={(event) => {
+                    resetBookingConfirmation();
+                    setCheckinQrData(null);
+                    setQrScanned(false);
+                    setBpjsCardNumber(event.target.value.replace(/\D/g, ""));
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && /^\d{1,32}$/.test(bpjsCardNumber)) {
+                      event.preventDefault();
+                      setError("");
+                      void handleBpjsCheckin(event as unknown as React.FormEvent);
+                    }
+                  }}
+                  autoComplete="off"
+                  inputMode="none"
+                  maxLength={32}
+                  required
+                  className="rounded-xl border-2 border-gray-200 p-4 text-xl"
+                  placeholder="Masukkan NIK, nomor RM, atau kartu BPJS"
+                />
+              </label>
+              {qrScanned && checkinQrData && <label className="mt-4 grid gap-2 font-semibold text-gray-700">
+                Kode Booking
+                <input
+                  value={bookingNumber}
+                  onChange={(event) => {
+                    resetBookingConfirmation();
+                    setCheckinQrData(null);
+                    setBookingNumber(event.target.value);
+                  }}
+                  autoComplete="off"
+                  inputMode="none"
+                  maxLength={100}
+                  readOnly
+                  className="rounded-xl border-2 border-gray-200 p-4 text-xl uppercase"
+                  placeholder="Contoh: ABC12345"
+                />
+              </label>}
+              {fristaBypassEnabled && (
+                <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                  Jika booking tidak ditemukan, nomor kartu 13 digit dipakai untuk uji Frista tanpa validasi FKTL atau cetak bukti check-in.
+                </div>
+              )}
+              {error && (
+                <div
+                  role="alert"
+                  className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700"
+                >
+                  {error}
+                </div>
+              )}
+                </section>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`col-span-full w-full rounded-xl bg-blue-700 px-6 py-4 text-lg font-bold text-white ${
+                    bookingScannerEnabled && cameraScannerOpen ? "" : "order-3"
+                  }`}
+                >
+                  {loading
+                    ? "Memproses..."
+                    : fristaJob
+                      ? "Coba Buka Frista"
+                      : bookingConfirmation
+                        ? "Check-in dan Buka Frista"
+                        : fristaBypassEnabled
+                          ? "Cek Booking / Uji Frista"
+                          : "Cek Booking"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && !bookingOpen && !patientTypeOpen && (
+          <div className="w-full bg-red-50 border border-red-200 rounded-xl p-4 text-center text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        {checkinMessage && (
+          <div className="w-full rounded-xl border border-green-200 bg-green-50 p-4 text-center text-green-700">
+            {checkinMessage}
+          </div>
+        )}
+
+        {/* Service Grid */}
+        <div className="w-full">
+          <h2 className="text-center text-xl font-semibold text-gray-700 mb-3 sm:text-2xl">
+            Pilih Layanan
+          </h2>
+          <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-2 sm:gap-3">
+            {services.map((service) => (
+              <div key={service.code} className="min-w-0 basis-[calc((100%-1rem)/3)] sm:basis-[calc((100%-1.5rem)/3)]">
+                <ServiceCard
+                  code={service.code}
+                  label={service.label}
+                  disabled={loading}
+                  onClick={() => handleSelectService(service.code)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {loading && (
+          <div className="text-blue-600 text-lg font-medium animate-pulse">
+            Memproses...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

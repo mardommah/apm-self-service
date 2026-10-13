@@ -5,12 +5,13 @@ import { QRDisplay } from "~/components/kiosk/QRDisplay";
 import { BpjsCheckin } from "~/components/visit/BpjsCheckin";
 import { getVisitById } from "~/server/functions/visits";
 import { getBpjsWorkflow } from "~/server/functions/bpjs";
-import { getBarcodeEnabled } from "~/server/functions/settings";
+import { getAutoPrintEnabled, getBarcodeEnabled } from "~/server/functions/settings";
 import type { BpjsWorkflow } from "~/server/schema";
 
 type VisitDetail = NonNullable<Awaited<ReturnType<typeof getVisitById>>> & {
   bpjsWorkflow: BpjsWorkflow | null;
   barcodeEnabled: boolean;
+  autoPrintEnabled: boolean;
 };
 
 const getVisitAction = createServerFn({ method: "GET" })
@@ -26,10 +27,13 @@ const getVisitAction = createServerFn({ method: "GET" })
       ...visit,
       bpjsWorkflow: isBpjs ? await getBpjsWorkflow(visit.id) : null,
       barcodeEnabled: await getBarcodeEnabled(),
+      autoPrintEnabled: await getAutoPrintEnabled(),
     };
   });
 
 export const Route = createFileRoute("/kiosk/qr/$visitId")({
+  validateSearch: (search: Record<string, unknown>): { from?: "kiosk2" } =>
+    search.from === "kiosk2" ? { from: "kiosk2" } : {},
   loader: async ({ params }): Promise<VisitDetail> => {
     return getVisitAction({ data: { visitId: (params as any).visitId } });
   },
@@ -39,6 +43,8 @@ export const Route = createFileRoute("/kiosk/qr/$visitId")({
 function QRPage() {
   const visit = Route.useLoaderData() as VisitDetail;
   const navigate = useNavigate();
+  const { from } = Route.useSearch();
+  const homePath = from === "kiosk2" ? "/kiosk2" : "/";
   const appUrl = typeof window !== "undefined"
     ? window.location.origin
     : (process.env.APP_URL ?? "http://localhost:3000");
@@ -46,7 +52,7 @@ function QRPage() {
   const timeoutMs = Number(process.env.KIOSK_TIMEOUT_MS ?? 300_000);
 
   function handleTimeout() {
-    navigate({ to: "/" });
+    navigate({ to: homePath });
   }
 
   if (visit.service.code === "registrasi" && visit.destinationService) {
@@ -69,7 +75,9 @@ function QRPage() {
       status={visit.status}
       appUrl={appUrl}
       barcodeEnabled={visit.barcodeEnabled}
+      autoPrintEnabled={visit.autoPrintEnabled}
       timeoutMs={timeoutMs}
+      homePath={homePath}
       onTimeout={handleTimeout}
     />
   );

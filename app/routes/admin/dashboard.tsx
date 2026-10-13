@@ -7,6 +7,7 @@ import { getDashboardDataAction } from "~/server/actions/dashboard-data";
 import { createPoliAction, updatePoliAction } from "~/server/actions/dashboard-poli";
 import {
   updateBarcodeSettingAction,
+  updateAutoPrintSettingAction,
   updateBookingScannerSettingAction,
   updateFristaBypassSettingAction,
 } from "~/server/actions/dashboard-settings";
@@ -68,6 +69,7 @@ function DashboardPage() {
   const [poliModalOpen, setPoliModalOpen] = useState(false);
   const [savingBarcode, setSavingBarcode] = useState(false);
   const [savingBookingScanner, setSavingBookingScanner] = useState(false);
+  const [savingAutoPrint, setSavingAutoPrint] = useState(false);
   const [savingFristaBypass, setSavingFristaBypass] = useState(false);
 
   useEffect(() => {
@@ -164,6 +166,17 @@ function DashboardPage() {
       await fetchData(token, statusFilter, serviceFilter, page);
     } finally {
       setSavingFristaBypass(false);
+    }
+  }
+
+  async function handleAutoPrintSetting(enabled: boolean) {
+    if (!token) return;
+    setSavingAutoPrint(true);
+    try {
+      await updateAutoPrintSettingAction({ data: { token, enabled } });
+      await fetchData(token, statusFilter, serviceFilter, page);
+    } finally {
+      setSavingAutoPrint(false);
     }
   }
 
@@ -266,6 +279,21 @@ function DashboardPage() {
                 disabled={savingBarcode}
                 label="Fitur barcode / QR"
                 onChange={handleBarcodeSetting}
+              />
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div>
+                <p className="font-medium text-gray-800">Cetak struk otomatis</p>
+                <p className="text-sm text-gray-500">
+                  Struk antrean langsung dicetak saat halaman tiket kiosk terbuka. Tombol cetak manual tetap tersedia.
+                </p>
+              </div>
+              <SettingSwitch
+                checked={data.autoPrintEnabled}
+                disabled={savingAutoPrint}
+                label="Cetak struk otomatis"
+                onChange={handleAutoPrintSetting}
               />
             </div>
 

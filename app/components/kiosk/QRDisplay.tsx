@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { SERVICE_ICONS } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
@@ -13,7 +13,9 @@ interface Props {
   status: string;
   appUrl: string;
   barcodeEnabled: boolean;
+  autoPrintEnabled: boolean;
   timeoutMs: number;
+  homePath: string;
   onTimeout: () => void;
 }
 
@@ -25,12 +27,22 @@ export function QRDisplay({
   status,
   appUrl,
   barcodeEnabled,
+  autoPrintEnabled,
   timeoutMs,
+  homePath,
   onTimeout,
 }: Props) {
   const [secondsLeft, setSecondsLeft] = useState(Math.floor(timeoutMs / 1000));
   const url = `${appUrl}/visit/${visitId}`;
   const icon = SERVICE_ICONS[serviceCode] ?? "🏥";
+  const autoPrinted = useRef(false);
+
+  useEffect(() => {
+    // Ref guard: print once per visit even if the effect re-runs (StrictMode).
+    if (!autoPrintEnabled || autoPrinted.current) return;
+    autoPrinted.current = true;
+    void handlePrint();
+  }, [autoPrintEnabled]);
 
   useEffect(() => {
     if (secondsLeft <= 0) {
@@ -95,7 +107,7 @@ export function QRDisplay({
           🖨️ Cetak via Printer
         </Button>
         <Button asChild variant="secondary" size="lg" className="w-full">
-          <a href="/">&larr; Kembali ke Home</a>
+          <a href={homePath}>&larr; Kembali ke Home</a>
         </Button>
       </div>
 

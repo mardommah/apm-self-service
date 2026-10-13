@@ -6,6 +6,7 @@ import {
   listVisits,
 } from "../functions/visits";
 import {
+  getAutoPrintEnabled,
   getBarcodeEnabled,
   getBookingScannerEnabled,
   getFristaBypassEnabled,
@@ -31,9 +32,10 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
       getBarcodeEnabled(),
       getBookingScannerEnabled(),
       getFristaBypassEnabled(),
+      getAutoPrintEnabled(),
     ]);
     const [visits, totalVisits, stats, services] = results;
-    const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled] = results;
+    const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled, autoPrintEnabled] = results;
     return {
       visits,
       totalVisits,
@@ -44,6 +46,7 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
       barcodeEnabled,
       bookingScannerEnabled,
       fristaBypassEnabled,
+      autoPrintEnabled,
       admin: { username: payload.username, role: payload.role },
     };
   });

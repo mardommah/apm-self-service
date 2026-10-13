@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import {
+  setAutoPrintEnabled,
   setBarcodeEnabled,
   setBookingScannerEnabled,
   setFristaBypassEnabled,
@@ -11,6 +12,14 @@ export const updateBarcodeSettingAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     requireAdminToken(data.token, true);
     await setBarcodeEnabled(data.enabled);
+    return { ok: true };
+  });
+
+export const updateAutoPrintSettingAction = createServerFn({ method: "POST" })
+  .validator((data: { token: string; enabled: boolean }) => data)
+  .handler(async ({ data }) => {
+    requireAdminToken(data.token, true);
+    await setAutoPrintEnabled(data.enabled);
     return { ok: true };
   });
 

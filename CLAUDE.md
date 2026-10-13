@@ -106,3 +106,10 @@ bun --hot ./index.ts
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
 
 dont generate app.config.timestamp_xxxx logs
+## Kiosk screens
+
+- UI kiosk ada di `app/components/kiosk/KioskScreen.tsx`; route `/kiosk` dan `/kiosk2` hanya wrapper tipis (loader `getServicesAction`).
+- `/kiosk2` (`bpjsDirectPrint`): kartu BPJS langsung `createVisit("registrasi")` tanpa pilih pasien baru/lama, cek booking, atau Frista → halaman `/kiosk/qr/$visitId?from=kiosk2` (QR + cetak struk). Layanan lain sama dengan `/kiosk`.
+- `?from=kiosk2` membuat tombol kembali & timeout di `QRDisplay` (`homePath`) kembali ke `/kiosk2`.
+- Setelah tambah/ubah file route, regenerasi `app/routeTree.gen.ts` (dev server melakukannya otomatis, atau pakai `generator` dari `@tanstack/router-generator`).
+- Setting `auto_print_enabled` (default TRUE, migration `0009`) → `QRDisplay` memanggil `printTicket` sekali saat halaman tiket terbuka (guard `useRef`). Toggle "Cetak struk otomatis" di Pengaturan Aplikasi admin. Berlaku untuk semua halaman tiket `/kiosk/qr/$visitId` (kiosk 1 & 2).

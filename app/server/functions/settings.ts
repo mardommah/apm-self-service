@@ -59,3 +59,21 @@ export async function setFristaBypassEnabled(fristaBypassEnabled: boolean) {
       set: { fristaBypassEnabled, updatedAt: new Date() },
     });
 }
+
+export async function getAutoPrintEnabled() {
+  const [settings] = await getDb()
+    .select({ autoPrintEnabled: appSettings.autoPrintEnabled })
+    .from(appSettings)
+    .where(eq(appSettings.id, SETTINGS_ID))
+    .limit(1);
+  return settings?.autoPrintEnabled ?? true;
+}
+
+export async function setAutoPrintEnabled(autoPrintEnabled: boolean) {
+  await getDb()
+    .insert(appSettings)
+    .values({ id: SETTINGS_ID, autoPrintEnabled, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({
+      set: { autoPrintEnabled, updatedAt: new Date() },
+    });
+}

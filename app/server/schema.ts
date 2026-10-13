@@ -37,6 +37,7 @@ export const appSettings = mysqlTable("app_settings", {
   barcodeEnabled: boolean("barcode_enabled").default(false).notNull(),
   bookingScannerEnabled: boolean("booking_scanner_enabled").default(false).notNull(),
   fristaBypassEnabled: boolean("frista_bypass_enabled").default(false).notNull(),
+  autoPrintEnabled: boolean("auto_print_enabled").default(true).notNull(),
   updatedAt: datetime("updated_at").default(new Date()).notNull(),
 });
 
