@@ -187,7 +187,7 @@ function browserPrint(data: PrintData): void {
       <div class="divider"></div>
       <div class="row"><span class="label">Layanan</span><span class="value">${data.serviceLabel}</span></div>
       <div class="row"><span class="label">Tanggal</span><span class="value">${dateStr}</span></div>
-      <div class="row"><span class="label">Pukul</span><span class="value">${timeStr} WIB</span></div>
+      <div class="row"><span class="label">Pukul</span><span class="value">${timeStr} WITA</span></div>
       <div class="divider"></div>
       <div class="footer">Simpan tiket & perlihatkan kepada petugas.</div>
     </body>
