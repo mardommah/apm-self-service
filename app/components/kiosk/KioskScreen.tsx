@@ -1,6 +1,8 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { ServiceCard } from "~/components/kiosk/ServiceCard";
+import { KioskRunningText } from "~/components/kiosk/KioskRunningText";
+import { KioskServiceGrid } from "~/components/kiosk/KioskServiceGrid";
+import { KioskWelcomePanel } from "~/components/kiosk/KioskWelcomePanel";
 import { GeneralPatientPanel } from "~/components/kiosk/GeneralPatientPanel";
 import {
   BpjsCameraScanner,
@@ -286,21 +288,10 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
   }
 
   return (
-    <div className="kiosk-fullscreen flex flex-col bg-gray-50 min-h-dvh">
-      {/* Header */}
-      <div className="bg-blue-700 text-white px-4 py-3 shadow-lg flex items-center justify-between gap-4 sm:px-8 sm:py-5">
-        <div>
-          <h1 className="text-lg font-bold sm:text-2xl">Klinik Syamsinar Maros Self Service</h1>
-          <p className="text-blue-200 text-sm">Pilih layanan yang Anda tuju</p>
-        </div>
-        <img
-          src="/logo-klinik-s.png"
-          alt="Klinik Syamsinar"
-          className="h-10 w-auto max-w-[30%] rounded-xl bg-white object-contain sm:h-16"
-        />
-      </div>
+    <div className="kiosk-fullscreen grid min-h-dvh grid-rows-[auto_1fr_auto] bg-bp-surface-2 lg:grid-cols-[440px_1fr] lg:grid-rows-[1fr_auto]">
+      <KioskWelcomePanel />
 
-      <div className="flex-1 flex flex-col items-center justify-center px-3 py-3 sm:px-8 max-w-7xl mx-auto w-full gap-4">
+      <div className="flex min-w-0 flex-col gap-5 px-4 py-6 lg:px-10 lg:pt-11 lg:pb-10">
         {generalPatientOpen && <GeneralPatientPanel
           url={generalPatientUrl}
           onClose={() => setGeneralPatientOpen(false)}
@@ -627,42 +618,29 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
 
         {/* Error */}
         {error && !bookingOpen && !patientTypeOpen && (
-          <div className="w-full bg-red-50 border border-red-200 rounded-xl p-4 text-center text-red-700 text-sm">
+          <div className="w-full border border-[#FCA5A5] bg-[#FEF2F2] p-4 text-center text-sm text-[#B91C1C]">
             {error}
           </div>
         )}
 
         {checkinMessage && (
-          <div className="w-full rounded-xl border border-green-200 bg-green-50 p-4 text-center text-green-700">
+          <div className="w-full border border-[#86EFAC] bg-[#F0FDF4] p-4 text-center text-[#15803D]">
             {checkinMessage}
           </div>
         )}
 
-        {/* Service Grid */}
-        <div className="w-full">
-          <h2 className="text-center text-xl font-semibold text-gray-700 mb-3 sm:text-2xl">
-            Pilih Layanan
-          </h2>
-          <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-2 sm:gap-3">
-            {services.map((service) => (
-              <div key={service.code} className="min-w-0 basis-[calc((100%-1rem)/3)] sm:basis-[calc((100%-1.5rem)/3)]">
-                <ServiceCard
-                  code={service.code}
-                  label={service.label}
-                  disabled={loading}
-                  onClick={() => handleSelectService(service.code)}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+        <KioskServiceGrid
+          services={services}
+          disabled={loading}
+          bpjsDirectPrint={bpjsDirectPrint}
+          onSelect={handleSelectService}
+        />
 
         {loading && (
-          <div className="text-blue-600 text-lg font-medium animate-pulse">
-            Memproses...
-          </div>
+          <p className="font-caption text-[13px] uppercase tracking-[1.2px] text-bp-accent-ink">Memproses…</p>
         )}
       </div>
+      <KioskRunningText />
     </div>
   );
 }

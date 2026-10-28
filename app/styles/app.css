@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+/* Blueprint kiosk tokens (DESIGN.md §2) */
+@theme {
+  --color-bp-ink: #1a1a1a;
+  --color-bp-muted: #4b5563;
+  --color-bp-faint: #9ca3af;
+  --color-bp-surface: #ffffff;
+  --color-bp-surface-2: #f3f4f6;
+  --color-bp-border: #e5e7eb;
+  --color-bp-accent: #2563eb;
+  --color-bp-accent-ink: #1d4ed8;
+  --color-bp-navy: #0b2a86;
+  --color-bp-sky: #93c5fd;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, sans-serif;
+  --font-caption: "Fragment Mono", ui-monospace, monospace;
+  --font-data: "IBM Plex Mono", ui-monospace, monospace;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -42,6 +60,22 @@
   width: 100%;
   overflow: hidden;
   user-select: none;
+}
+
+/* Running text (DESIGN.md §4.5) */
+@keyframes marquee {
+  from { translate: 0; }
+  to { translate: -50%; }
+}
+.marquee-track {
+  animation: marquee linear infinite;
+  will-change: translate;
+}
+@keyframes fade {
+  from { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
 }
 
 /* Print styles */
