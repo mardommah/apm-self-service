@@ -104,7 +104,7 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
       setPatientTypeOpen(true);
       return;
     }
-    if (serviceCode === "poli_umum") {
+    if (serviceCode === "poli_umum" && !bpjsDirectPrint) {
       setError("");
       setGeneralPatientOpen(true);
       return;

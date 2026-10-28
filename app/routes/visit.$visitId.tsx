@@ -3,11 +3,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie, getRequestHeaders, setCookie } from "@tanstack/start-server-core";
 import { nanoid } from "nanoid";
 import { VisitDetail } from "~/components/visit/VisitDetail";
-import { markScanned } from "~/server/functions/visits";
+import { getDailyQueueNumber, markScanned } from "~/server/functions/visits";
 import { getBarcodeEnabled } from "~/server/functions/settings";
 import type { getVisitById } from "~/server/functions/visits";
 
-type VisitData = NonNullable<Awaited<ReturnType<typeof getVisitById>>>;
+type VisitData = NonNullable<Awaited<ReturnType<typeof getVisitById>>> & { queueNumber: string };
 
 const loadVisitAction = createServerFn({ method: "GET" })
   .validator((d: { visitId: string }) => d)
@@ -27,7 +27,7 @@ const loadVisitAction = createServerFn({ method: "GET" })
     }
     const visit = await markScanned(data.visitId, ua, deviceId);
     if (!visit) throw new Error("Visit not found");
-    return visit;
+    return { ...visit, queueNumber: await getDailyQueueNumber(visit) };
   });
 
 export const Route = createFileRoute("/visit/$visitId")({

@@ -77,3 +77,21 @@ export async function setAutoPrintEnabled(autoPrintEnabled: boolean) {
       set: { autoPrintEnabled, updatedAt: new Date() },
     });
 }
+
+export async function getKioskReturnSeconds() {
+  const [settings] = await getDb()
+    .select({ kioskReturnSeconds: appSettings.kioskReturnSeconds })
+    .from(appSettings)
+    .where(eq(appSettings.id, SETTINGS_ID))
+    .limit(1);
+  return settings?.kioskReturnSeconds ?? 30;
+}
+
+export async function setKioskReturnSeconds(kioskReturnSeconds: number) {
+  await getDb()
+    .insert(appSettings)
+    .values({ id: SETTINGS_ID, kioskReturnSeconds, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({
+      set: { kioskReturnSeconds, updatedAt: new Date() },
+    });
+}

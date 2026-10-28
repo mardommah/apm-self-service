@@ -273,6 +273,19 @@ export async function countVisits(filters?: {
   return Number(row?.total ?? 0);
 }
 
+// ─── Daily queue number ──────────────────────────────────────────────────────
+/** 1-based order of a visit among all visits created on the same day (ULID ids sort by time). */
+export async function getDailyQueueNumber(visit: { id: string; createdAt: Date }) {
+  const db = getDb();
+  const dayStart = new Date(visit.createdAt);
+  dayStart.setHours(0, 0, 0, 0);
+  const [row] = await db
+    .select({ total: count(visits.id) })
+    .from(visits)
+    .where(and(gte(visits.createdAt, dayStart), lte(visits.id, visit.id)));
+  return String(row?.total ?? 0).padStart(3, "0");
+}
+
 // ─── Daily stats ──────────────────────────────────────────────────────────────
 export async function getDailyStats() {
   const db = getDb();

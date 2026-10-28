@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { SERVICE_ICONS } from "~/lib/utils";
-import { Button } from "~/components/ui/button";
 import { printTicket } from "~/lib/print";
+import { QrActions } from "./QrActions";
 import { QrCountdown } from "./QrCountdown";
 
 interface Props {
   visitId: string;
+  queueNumber: string;
   serviceLabel: string;
   serviceCode: string;
   createdAt: Date | string;
@@ -21,6 +22,7 @@ interface Props {
 
 export function QRDisplay({
   visitId,
+  queueNumber,
   serviceLabel,
   serviceCode,
   createdAt,
@@ -55,7 +57,7 @@ export function QRDisplay({
 
   async function handlePrint() {
     await printTicket({
-      visitId,
+      queueNumber,
       serviceLabel,
       createdAt,
       status,
@@ -65,57 +67,52 @@ export function QRDisplay({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh bg-gradient-to-b from-blue-50 to-white px-6 py-10 gap-8">
-      {/* Header */}
-      <div className="text-center">
-        <div className="text-5xl mb-2" role="img" aria-label={serviceLabel}>
-          {icon}
+    <div className="flex flex-col min-h-dvh bg-gradient-to-b from-blue-50 to-white">
+      <QrActions homePath={homePath} onPrint={handlePrint} />
+
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-10 gap-8">
+        {/* Header */}
+        <div className="text-center">
+          <div className="text-5xl mb-2" role="img" aria-label={serviceLabel}>
+            {icon}
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900">{serviceLabel}</h1>
+          <p className="text-gray-500 mt-1 text-lg">
+            {barcodeEnabled ? "Scan kode QR dengan kamera HP Anda" : "Cetak dan simpan karcis antrean Anda"}
+          </p>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">{serviceLabel}</h1>
-        <p className="text-gray-500 mt-1 text-lg">
-          {barcodeEnabled ? "Scan kode QR dengan kamera HP Anda" : "Cetak dan simpan karcis antrean Anda"}
-        </p>
-      </div>
 
-      {/* QR Code */}
-      {barcodeEnabled && (
-        <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-blue-100">
-          <QRCode
-            value={url}
-            size={260}
-            level="H"
-            style={{ display: "block" }}
-            aria-label={`QR code untuk kunjungan ${visitId}`}
-          />
+        {/* QR Code */}
+        {barcodeEnabled && (
+          <div className="bg-white p-6 rounded-3xl shadow-xl border-4 border-blue-100">
+            <QRCode
+              value={url}
+              size={260}
+              level="H"
+              style={{ display: "block" }}
+              aria-label={`QR code untuk kunjungan ${visitId}`}
+            />
+          </div>
+        )}
+
+        {/* Visit ID */}
+        <div className="text-center bg-blue-50 rounded-xl px-8 py-4 border border-blue-100">
+          <p className="text-sm text-blue-500 font-medium uppercase tracking-widest mb-1">
+            No. Kunjungan
+          </p>
+          <p className="font-mono text-2xl font-bold text-blue-800 tracking-wider">
+            {visitId}
+          </p>
         </div>
-      )}
 
-      {/* Visit ID */}
-      <div className="text-center bg-blue-50 rounded-xl px-8 py-4 border border-blue-100">
-        <p className="text-sm text-blue-500 font-medium uppercase tracking-widest mb-1">
-          No. Kunjungan
+        <QrCountdown secondsLeft={secondsLeft} timeoutMs={timeoutMs} />
+
+        <p className="text-xs text-gray-400 text-center max-w-xs">
+          {barcodeEnabled
+            ? "Setelah scan, simpan atau cetak tiket dari HP Anda"
+            : "Simpan karcis dan tunjukkan kepada petugas saat dipanggil"}
         </p>
-        <p className="font-mono text-2xl font-bold text-blue-800 tracking-wider">
-          {visitId}
-        </p>
-      </div>
-
-      <QrCountdown secondsLeft={secondsLeft} timeoutMs={timeoutMs} />
-
-      <div className="grid w-full max-w-sm gap-3 no-print">
-        <Button size="lg" onClick={handlePrint} className="w-full">
-          🖨️ Cetak via Printer
-        </Button>
-        <Button asChild variant="secondary" size="lg" className="w-full">
-          <a href={homePath}>&larr; Kembali ke Home</a>
-        </Button>
-      </div>
-
-      <p className="text-xs text-gray-400 text-center max-w-xs">
-        {barcodeEnabled
-          ? "Setelah scan, simpan atau cetak tiket dari HP Anda"
-          : "Simpan karcis dan tunjukkan kepada petugas saat dipanggil"}
-      </p>
+      </main>
     </div>
   );
 }

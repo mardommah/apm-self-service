@@ -1,5 +1,5 @@
 export interface PrintData {
-  visitId: string;
+  queueNumber: string;
   serviceLabel: string;
   createdAt: Date | string;
   status: string;
@@ -117,7 +117,7 @@ async function tryApmPrint(data: PrintData): Promise<boolean> {
       template: "ticket",
       data: {
         title: "Klinik Syamsinar Maros Self Service",
-        visitId: data.visitId,
+        queueNumber: data.queueNumber,
         service: data.serviceLabel,
         date: new Date(data.createdAt).toLocaleDateString("id-ID", {
           day: "numeric",
@@ -178,18 +178,18 @@ function browserPrint(data: PrintData): void {
     </head>
     <body>
       <div class="center">
-        <div class="title">Klinik Syamsinar Maros Self Service</div>
+        <div class="title">Klinik Syamsinar Maros</div>
         <div>Tiket Kunjungan</div>
       </div>
       <div class="divider"></div>
-      <div class="id">${data.visitId}</div>
+      <div class="label center">No. Antrean</div>
+      <div class="id">${data.queueNumber}</div>
       <div class="divider"></div>
       <div class="row"><span class="label">Layanan</span><span class="value">${data.serviceLabel}</span></div>
       <div class="row"><span class="label">Tanggal</span><span class="value">${dateStr}</span></div>
       <div class="row"><span class="label">Pukul</span><span class="value">${timeStr} WIB</span></div>
-      <div class="row"><span class="label">Status</span><span class="value">Menunggu</span></div>
       <div class="divider"></div>
-      <div class="footer">Simpan tiket ini. Tunjukkan kepada petugas saat dipanggil.</div>
+      <div class="footer">Simpan tiket & perlihatkan kepada petugas.</div>
     </body>
     </html>
   `);

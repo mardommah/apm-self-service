@@ -3,15 +3,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/start-server-core";
 import { QRDisplay } from "~/components/kiosk/QRDisplay";
 import { BpjsCheckin } from "~/components/visit/BpjsCheckin";
-import { getVisitById } from "~/server/functions/visits";
+import { getDailyQueueNumber, getVisitById } from "~/server/functions/visits";
 import { getBpjsWorkflow } from "~/server/functions/bpjs";
-import { getAutoPrintEnabled, getBarcodeEnabled } from "~/server/functions/settings";
+import { getAutoPrintEnabled, getBarcodeEnabled, getKioskReturnSeconds } from "~/server/functions/settings";
 import type { BpjsWorkflow } from "~/server/schema";
 
 type VisitDetail = NonNullable<Awaited<ReturnType<typeof getVisitById>>> & {
   bpjsWorkflow: BpjsWorkflow | null;
+  queueNumber: string;
   barcodeEnabled: boolean;
   autoPrintEnabled: boolean;
+  kioskReturnSeconds: number;
 };
 
 const getVisitAction = createServerFn({ method: "GET" })
@@ -25,9 +27,11 @@ const getVisitAction = createServerFn({ method: "GET" })
     }
     return {
       ...visit,
+      queueNumber: await getDailyQueueNumber(visit),
       bpjsWorkflow: isBpjs ? await getBpjsWorkflow(visit.id) : null,
       barcodeEnabled: await getBarcodeEnabled(),
       autoPrintEnabled: await getAutoPrintEnabled(),
+      kioskReturnSeconds: await getKioskReturnSeconds(),
     };
   });
 
@@ -49,7 +53,7 @@ function QRPage() {
     ? window.location.origin
     : (process.env.APP_URL ?? "http://localhost:3000");
 
-  const timeoutMs = Number(process.env.KIOSK_TIMEOUT_MS ?? 300_000);
+  const timeoutMs = visit.kioskReturnSeconds * 1000;
 
   function handleTimeout() {
     navigate({ to: homePath });
@@ -69,6 +73,7 @@ function QRPage() {
   return (
     <QRDisplay
       visitId={visit.id}
+      queueNumber={visit.queueNumber}
       serviceLabel={visit.service.label}
       serviceCode={visit.service.code}
       createdAt={visit.createdAt}

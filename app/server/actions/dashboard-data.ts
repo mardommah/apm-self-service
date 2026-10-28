@@ -10,6 +10,7 @@ import {
   getBarcodeEnabled,
   getBookingScannerEnabled,
   getFristaBypassEnabled,
+  getKioskReturnSeconds,
 } from "../functions/settings";
 import type { VisitStatus } from "../schema";
 import { requireAdminToken } from "./admin-auth";
@@ -33,9 +34,10 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
       getBookingScannerEnabled(),
       getFristaBypassEnabled(),
       getAutoPrintEnabled(),
+      getKioskReturnSeconds(),
     ]);
     const [visits, totalVisits, stats, services] = results;
-    const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled, autoPrintEnabled] = results;
+    const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled, autoPrintEnabled, kioskReturnSeconds] = results;
     return {
       visits,
       totalVisits,
@@ -47,6 +49,7 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
       bookingScannerEnabled,
       fristaBypassEnabled,
       autoPrintEnabled,
+      kioskReturnSeconds,
       admin: { username: payload.username, role: payload.role },
     };
   });

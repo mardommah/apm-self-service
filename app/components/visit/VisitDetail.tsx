@@ -4,6 +4,7 @@ import { VisitTicket, type VisitTicketData } from "./VisitTicket";
 
 interface VisitData extends VisitTicketData {
   scannedAt?: Date | string | null;
+  queueNumber: string;
 }
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
 export function VisitDetail({ visit, appUrl }: Props) {
   async function handlePrint() {
     await printTicket({
-      visitId: visit.id,
+      queueNumber: visit.queueNumber,
       serviceLabel: visit.service.label,
       createdAt: visit.createdAt,
       status: visit.status,

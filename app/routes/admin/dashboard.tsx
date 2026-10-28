@@ -10,6 +10,7 @@ import {
   updateAutoPrintSettingAction,
   updateBookingScannerSettingAction,
   updateFristaBypassSettingAction,
+  updateKioskReturnSecondsAction,
 } from "~/server/actions/dashboard-settings";
 import { deleteAction, revokeAction, serveAction } from "~/server/actions/dashboard-visits";
 
@@ -71,6 +72,8 @@ function DashboardPage() {
   const [savingBookingScanner, setSavingBookingScanner] = useState(false);
   const [savingAutoPrint, setSavingAutoPrint] = useState(false);
   const [savingFristaBypass, setSavingFristaBypass] = useState(false);
+  const [kioskReturnSeconds, setKioskReturnSeconds] = useState<string | null>(null);
+  const [savingKioskReturn, setSavingKioskReturn] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -177,6 +180,19 @@ function DashboardPage() {
       await fetchData(token, statusFilter, serviceFilter, page);
     } finally {
       setSavingAutoPrint(false);
+    }
+  }
+
+  async function handleKioskReturnSeconds(event: React.FormEvent) {
+    event.preventDefault();
+    if (!token || kioskReturnSeconds === null) return;
+    setSavingKioskReturn(true);
+    try {
+      await updateKioskReturnSecondsAction({ data: { token, seconds: Number(kioskReturnSeconds) } });
+      await fetchData(token, statusFilter, serviceFilter, page);
+      setKioskReturnSeconds(null);
+    } finally {
+      setSavingKioskReturn(false);
     }
   }
 
@@ -296,6 +312,34 @@ function DashboardPage() {
                 onChange={handleAutoPrintSetting}
               />
             </div>
+
+            <form
+              onSubmit={handleKioskReturnSeconds}
+              className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4"
+            >
+              <div>
+                <p className="font-medium text-gray-800">Kembali otomatis (detik)</p>
+                <p className="text-sm text-gray-500">
+                  Halaman tiket kiosk (QR & cetak) kembali ke beranda setelah waktu ini. 5–600 detik.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <input
+                  type="number"
+                  min={5}
+                  max={600}
+                  step={1}
+                  required
+                  value={kioskReturnSeconds ?? String(data.kioskReturnSeconds)}
+                  onChange={(event) => setKioskReturnSeconds(event.target.value)}
+                  aria-label="Kembali otomatis (detik)"
+                  className="h-10 w-20 rounded-md border border-gray-300 px-3 text-sm"
+                />
+                <Button type="submit" size="sm" disabled={savingKioskReturn}>
+                  Simpan
+                </Button>
+              </div>
+            </form>
 
             <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4">
               <div>
