@@ -1,4 +1,6 @@
+import { KioskOtherServices } from "~/components/kiosk/KioskOtherServices";
 import { ServiceCard } from "~/components/kiosk/ServiceCard";
+import { OTHER_SERVICE_CODES } from "~/components/kiosk/serviceIcons";
 
 interface Props {
   services: { code: string; label: string }[];
@@ -9,14 +11,16 @@ interface Props {
 
 export function KioskServiceGrid({ services, disabled, bpjsDirectPrint, onSelect }: Props) {
   const primary = services.find((s) => s.code === "registrasi");
-  const rows = services.filter((s) => s !== primary);
+  // Design order (CS, Surat, Lainnya), not server order.
+  const others = OTHER_SERVICE_CODES.flatMap((code) => services.filter((s) => s.code === code));
+  const rows = services.filter((s) => s !== primary && !others.includes(s));
   const offset = primary ? 2 : 1;
 
   return (
     <div className="flex w-full flex-1 flex-col gap-5">
       <div className="flex items-center justify-between font-caption text-[13px] uppercase tracking-[1.2px]">
         <span className="text-bp-ink">FIG. 01 — Daftar layanan</span>
-        <span className="text-bp-muted">{String(services.length).padStart(2, "0")} layanan</span>
+        <span className="text-bp-muted">{String(services.length - others.length).padStart(2, "0")} layanan</span>
       </div>
       <div className="flex flex-1 flex-col gap-4 lg:flex-row">
         {primary && (
@@ -45,6 +49,12 @@ export function KioskServiceGrid({ services, disabled, bpjsDirectPrint, onSelect
           ))}
         </div>
       </div>
+      <KioskOtherServices
+        services={others}
+        startIndex={offset + rows.length}
+        disabled={disabled}
+        onSelect={onSelect}
+      />
     </div>
   );
 }
