@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { KioskRunningText } from "~/components/kiosk/KioskRunningText";
 import { KioskServiceGrid } from "~/components/kiosk/KioskServiceGrid";
 import { KioskWelcomePanel } from "~/components/kiosk/KioskWelcomePanel";
@@ -10,6 +10,7 @@ import {
 } from "~/components/kiosk/BpjsCameraScanner";
 import { TouchKeyboard } from "~/components/kiosk/TouchKeyboard";
 import { printBpjsCheckin } from "~/lib/print";
+import { queueOfflineVisit, startBackgroundSync } from "~/lib/offline-kiosk";
 import { lookupBpjsBooking } from "~/server/functions/bpjs";
 import { createVisit } from "~/server/functions/visits";
 import { kioskAction, type KioskData } from "~/server/actions/kiosk";
@@ -76,6 +77,8 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
   const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
   const [bookingConfirmationOpen, setBookingConfirmationOpen] = useState(false);
   const bpjsCardInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => (bpjsDirectPrint ? startBackgroundSync() : undefined), [bpjsDirectPrint]);
 
   function resetBookingConfirmation() {
     setBookingConfirmation(null);
@@ -274,10 +277,18 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
     setLoading(true);
     setError("");
     try {
-      const result = await createVisitAction(serviceCode, registration);
+      const visitId = await createVisitAction(serviceCode, registration).then(
+        (result) => result.id,
+        (cause) => {
+          const service = services.find((s) => s.code === serviceCode);
+          // Kiosk 2 is offline-first: keep the ticket in the local outbox; background sync uploads it.
+          if (!bpjsDirectPrint || !service) throw cause;
+          return queueOfflineVisit(service).id;
+        },
+      );
       navigate({
         to: "/kiosk/qr/$visitId",
-        params: { visitId: result.id },
+        params: { visitId },
         search: bpjsDirectPrint ? { from: "kiosk2" } : {},
       });
     } catch {

@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { setCookie } from "@tanstack/start-server-core";
 import { checkInBpjsBooking, createFristaTestJob, lookupBpjsBooking } from "../functions/bpjs";
-import { getBookingScannerEnabled, getFristaBypassEnabled } from "../functions/settings";
+import {
+  getAutoPrintEnabled,
+  getBarcodeEnabled,
+  getBookingScannerEnabled,
+  getFristaBypassEnabled,
+  getKioskReturnSeconds,
+} from "../functions/settings";
 import { createVisit, getAllServices } from "../functions/visits";
 import { createGeneralLoketQueue, getGeneralLoketPreview } from "../simrs";
 import type { Service } from "../schema";
@@ -14,6 +20,7 @@ type Input =
   | { action: "lookup"; bookingCode?: string; identifier: string }
   | { action: "frista-test"; cardNumber: string }
   | { action: "checkin"; bookingCode: string; cardNumber: string; source: "manual" | "qr" }
+  | { action: "sync"; visits: { id: string; serviceCode: string; createdAt: string; queueNumber: string }[] }
   | {
       action: "create";
       serviceCode: string;
@@ -26,23 +33,72 @@ export type KioskData = {
   fristaBypassEnabled: boolean;
   bookingScannerEnabled: boolean;
   generalPatientUrl: string | null;
+  // Cached by kiosk2 so offline tickets render like online ones.
+  barcodeEnabled: boolean;
+  autoPrintEnabled: boolean;
+  kioskReturnSeconds: number;
 };
 
 export const kioskAction = createServerFn({ method: "POST" })
   .validator((data: Input) => data)
   .handler(async ({ data }) => {
     if (data.action === "services") {
-      const [services, fristaBypassEnabled, bookingScannerEnabled] = await Promise.all([
+      const [
+        services,
+        fristaBypassEnabled,
+        bookingScannerEnabled,
+        barcodeEnabled,
+        autoPrintEnabled,
+        kioskReturnSeconds,
+      ] = await Promise.all([
         getAllServices(),
         getFristaBypassEnabled(),
         getBookingScannerEnabled(),
+        getBarcodeEnabled(),
+        getAutoPrintEnabled(),
+        getKioskReturnSeconds(),
       ]);
       let generalPatientUrl: string | null = null;
       try {
         const url = new URL(process.env.MLITE_GENERAL_PATIENT_URL ?? "");
         if (url.protocol === "http:" || url.protocol === "https:") generalPatientUrl = url.toString();
       } catch {}
-      return { services, fristaBypassEnabled, bookingScannerEnabled, generalPatientUrl };
+      return {
+        services,
+        fristaBypassEnabled,
+        bookingScannerEnabled,
+        generalPatientUrl,
+        barcodeEnabled,
+        autoPrintEnabled,
+        kioskReturnSeconds,
+      };
+    }
+    if (data.action === "sync") {
+      const done: string[] = [];
+      for (const visit of data.visits.slice(0, 200)) {
+        const createdAt = Math.min(Date.parse(visit.createdAt), Date.now());
+        const valid =
+          /^[0-9A-HJKMNP-TV-Z]{26}$/.test(visit.id) &&
+          /^O\d{3,}$/.test(visit.queueNumber) &&
+          Date.now() - createdAt < 7 * 86_400_000;
+        try {
+          if (valid) {
+            await createVisit(visit.serviceCode, undefined, {
+              id: visit.id,
+              createdAt: new Date(createdAt),
+              queueNumber: visit.queueNumber,
+            });
+          } else {
+            console.warn("Offline visit dropped (invalid):", visit.id);
+          }
+        } catch (error) {
+          // DB errors propagate so the kiosk retries; an unknown service never succeeds, so drop it.
+          if (!(error instanceof Error && error.message.startsWith("Service '"))) throw error;
+          console.warn("Offline visit dropped (service not found):", visit.id);
+        }
+        done.push(visit.id);
+      }
+      return { done };
     }
     if (data.action === "general-loket-queue") {
       if (data.loket !== 1 && data.loket !== 2) {

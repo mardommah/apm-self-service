@@ -7,6 +7,7 @@ import { getDailyQueueNumber, getVisitById } from "~/server/functions/visits";
 import { getBpjsWorkflow } from "~/server/functions/bpjs";
 import { getAutoPrintEnabled, getBarcodeEnabled, getKioskReturnSeconds } from "~/server/functions/settings";
 import type { BpjsWorkflow } from "~/server/schema";
+import { getCachedKioskData, getOfflineVisit } from "~/lib/offline-kiosk";
 
 type VisitDetail = NonNullable<Awaited<ReturnType<typeof getVisitById>>> & {
   bpjsWorkflow: BpjsWorkflow | null;
@@ -39,10 +40,37 @@ export const Route = createFileRoute("/kiosk/qr/$visitId")({
   validateSearch: (search: Record<string, unknown>): { from?: "kiosk2" } =>
     search.from === "kiosk2" ? { from: "kiosk2" } : {},
   loader: async ({ params }): Promise<VisitDetail> => {
-    return getVisitAction({ data: { visitId: (params as any).visitId } });
+    const { visitId } = params as any;
+    try {
+      return await getVisitAction({ data: { visitId } });
+    } catch (error) {
+      const offline = offlineVisitDetail(visitId);
+      if (!offline) throw error;
+      return offline;
+    }
   },
   component: QRPage,
 });
+
+/** Kiosk 2 ticket still in the offline outbox (server unreachable or not synced yet). */
+function offlineVisitDetail(visitId: string): VisitDetail | null {
+  const visit = getOfflineVisit(visitId);
+  const data = getCachedKioskData();
+  if (!visit || !data) return null;
+  // Only the fields QRDisplay reads; the rest exist once the visit syncs.
+  return {
+    id: visit.id,
+    status: "waiting",
+    createdAt: new Date(visit.createdAt),
+    queueNumber: visit.queueNumber,
+    service: { code: visit.serviceCode, label: visit.serviceLabel, icon: "" },
+    destinationService: null,
+    bpjsWorkflow: null,
+    barcodeEnabled: data.barcodeEnabled,
+    autoPrintEnabled: data.autoPrintEnabled,
+    kioskReturnSeconds: data.kioskReturnSeconds,
+  } as VisitDetail;
+}
 
 function QRPage() {
   const visit = Route.useLoaderData() as VisitDetail;

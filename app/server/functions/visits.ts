@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, desc, gte, lte, count, sql, ne, notLike, or } from "drizzle-orm";
+import { eq, and, desc, gte, lte, count, sql, ne, notLike, or, isNull } from "drizzle-orm";
 import { getDb } from "../db";
 import { visits, services, admins } from "../schema";
 import { ulid } from "~/lib/ulid";
@@ -37,10 +37,14 @@ export async function assertVisitOwnedByDevice(id: string, deviceId: string) {
   if (!visit) throw new Error("VISIT_DEVICE_MISMATCH");
 }
 
+// Offline kiosk tickets keep their printed number in notes, e.g. "offline:O001".
+const OFFLINE_NOTE_PREFIX = "offline:";
+
 // ─── Create visit ─────────────────────────────────────────────────────────────
 export async function createVisit(
   serviceCode: string,
   registration?: { destinationServiceCode: string; patientStatus: "baru" | "lama" },
+  offline?: { id: string; createdAt: Date; queueNumber: string },
 ) {
   const db = getDb();
 
@@ -69,16 +73,21 @@ export async function createVisit(
     destinationServiceId = destination.id;
   }
 
-  const id = ulid();
-  await db.insert(visits).values({
-    id,
-    serviceId: service.id,
-    destinationServiceId,
-    patientStatus: registration?.patientStatus ?? null,
-    deviceId: null,
-    status: "waiting",
-    createdAt: new Date(),
-  });
+  const id = offline?.id ?? ulid();
+  await db
+    .insert(visits)
+    .values({
+      id,
+      serviceId: service.id,
+      destinationServiceId,
+      patientStatus: registration?.patientStatus ?? null,
+      deviceId: null,
+      status: "waiting",
+      createdAt: offline?.createdAt ?? new Date(),
+      notes: offline ? OFFLINE_NOTE_PREFIX + offline.queueNumber : null,
+    })
+    // Re-syncing the same offline visit is a no-op.
+    .onDuplicateKeyUpdate({ set: { id } });
 
   return { id, service };
 }
@@ -275,14 +284,22 @@ export async function countVisits(filters?: {
 
 // ─── Daily queue number ──────────────────────────────────────────────────────
 /** 1-based order of a visit among all visits created on the same day (ULID ids sort by time). */
-export async function getDailyQueueNumber(visit: { id: string; createdAt: Date }) {
+export async function getDailyQueueNumber(visit: { id: string; createdAt: Date; notes?: string | null }) {
+  if (visit.notes?.startsWith(OFFLINE_NOTE_PREFIX)) return visit.notes.slice(OFFLINE_NOTE_PREFIX.length);
   const db = getDb();
   const dayStart = new Date(visit.createdAt);
   dayStart.setHours(0, 0, 0, 0);
   const [row] = await db
     .select({ total: count(visits.id) })
     .from(visits)
-    .where(and(gte(visits.createdAt, dayStart), lte(visits.id, visit.id)));
+    .where(
+      and(
+        gte(visits.createdAt, dayStart),
+        lte(visits.id, visit.id),
+        // Offline tickets have their own O-numbers; counting them would shift printed online numbers.
+        or(isNull(visits.notes), notLike(visits.notes, `${OFFLINE_NOTE_PREFIX}%`)),
+      ),
+    );
   return String(row?.total ?? 0).padStart(3, "0");
 }
 
