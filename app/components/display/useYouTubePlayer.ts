@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { applySound, sourceOptions, YT_CUED, YT_ENDED, YT_PAUSED } from "./youtubeSource";
+import { applySound, sourceOptions, useVolumeRamp, YT_CUED, YT_ENDED, YT_PAUSED } from "./youtubeSource";
 import { loadYouTubeApi } from "./youtubeApi";
 import { useVideoInfo } from "./useVideoInfo";
 
@@ -13,6 +13,8 @@ export function useYouTubePlayer(playlist: string, volume: number) {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [muted, setMuted] = useState(true);
+  const userMutedRef = useRef(false);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -35,7 +37,7 @@ export function useYouTubePlayer(playlist: string, volume: number) {
           onReady: (event: any) => {
             event.target.mute();
             event.target.playVideo();
-            applySound(event.target, volumeRef.current);
+            setMuted(applySound(event.target, volumeRef.current, userMutedRef.current));
             isReady = true;
             setReady(true);
           },
@@ -43,6 +45,7 @@ export function useYouTubePlayer(playlist: string, volume: number) {
           onStateChange: (event: any) => {
             if (event.data === YT_PAUSED || event.data === YT_CUED) {
               event.target.mute();
+              setMuted(true);
               event.target.playVideo();
             } else if (event.data === YT_ENDED && options.single) {
               event.target.seekTo(0);
@@ -71,25 +74,21 @@ export function useYouTubePlayer(playlist: string, volume: number) {
 
   // First click anywhere (e.g. the sound gate) lets the video play with sound.
   useEffect(() => {
-    const unmute = () => playerRef.current?.unMute && applySound(playerRef.current, volumeRef.current);
+    const unmute = () =>
+      playerRef.current?.unMute && setMuted(applySound(playerRef.current, volumeRef.current, userMutedRef.current));
     window.addEventListener("pointerdown", unmute);
     return () => window.removeEventListener("pointerdown", unmute);
   }, []);
 
-  // Ramp volume over ~400ms when ducking for a call and back.
-  useEffect(() => {
-    const from = volumeRef.current;
-    volumeRef.current = volume;
-    let step = 0;
-    const id = setInterval(() => {
-      step += 1;
-      playerRef.current?.setVolume?.(Math.round(from + ((volume - from) * step) / 8));
-      if (step >= 8) clearInterval(id);
-    }, 50);
-    return () => clearInterval(id);
-  }, [volume]);
+  useVolumeRamp(playerRef, volumeRef, volume);
 
   const info = useVideoInfo(playerRef, ready);
 
-  return { hostRef, ready, failed: failed || !playlist, info };
+  function toggleMute() {
+    if (!playerRef.current?.unMute) return;
+    userMutedRef.current = !muted;
+    setMuted(applySound(playerRef.current, volumeRef.current, userMutedRef.current));
+  }
+
+  return { hostRef, ready, failed: failed || !playlist, info, muted, toggleMute };
 }

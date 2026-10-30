@@ -1,3 +1,4 @@
+import { useEffect, type RefObject } from "react";
 import { isAudioUnlocked } from "~/lib/announce";
 
 export const YT_ENDED = 0;
@@ -19,9 +20,31 @@ export function sourceOptions(source: string) {
   return { videoId: undefined, single: false, playerVars: { ...PLAYER_VARS, listType: "playlist", list: source } };
 }
 
-/** Chrome pauses a video that unmutes without a user gesture, so sound is enabled only once audio is allowed. */
-export function applySound(player: any, volume: number) {
-  if (!isAudioUnlocked()) return player.mute();
+/**
+ * Chrome pauses a video that unmutes without a user gesture, so sound is enabled only once audio is allowed
+ * (and the viewer has not muted it). Returns whether the player ends up muted.
+ */
+export function applySound(player: any, volume: number, userMuted = false) {
+  if (userMuted || !isAudioUnlocked()) {
+    player.mute();
+    return true;
+  }
   player.unMute();
   player.setVolume(volume);
+  return false;
+}
+
+/** Ramps the player volume over ~400ms when ducking for a call and back. */
+export function useVolumeRamp(playerRef: RefObject<any>, volumeRef: RefObject<number>, volume: number) {
+  useEffect(() => {
+    const from = volumeRef.current;
+    volumeRef.current = volume;
+    let step = 0;
+    const id = setInterval(() => {
+      step += 1;
+      playerRef.current?.setVolume?.(Math.round(from + ((volume - from) * step) / 8));
+      if (step >= 8) clearInterval(id);
+    }, 50);
+    return () => clearInterval(id);
+  }, [volume]);
 }

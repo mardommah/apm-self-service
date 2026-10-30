@@ -46,3 +46,8 @@ export function getAdminRole(): string | null {
     return null;
   }
 }
+
+/** Only an expired/invalid token ends the session; network or dev-server hiccups keep the admin logged in. */
+export function isUnauthorized(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("UNAUTHORIZED");
+}

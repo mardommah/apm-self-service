@@ -10,7 +10,7 @@ function clock(seconds: number) {
 
 export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: boolean }) {
   const volume = ducked ? DISPLAY_DUCKED_VOLUME : DISPLAY_VIDEO_VOLUME;
-  const { hostRef, ready, failed, info } = useYouTubePlayer(playlist, volume);
+  const { hostRef, ready, failed, info, muted, toggleMute } = useYouTubePlayer(playlist, volume);
   const playing = ready && !failed;
 
   return (
@@ -40,10 +40,16 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
             <span className="absolute left-7 top-7 flex items-center gap-2.5 bg-bp-navy px-3.5 py-2 font-caption text-[13px] text-white">
               <YouTubeMark size={18} /> YOUTUBE · SEDANG DIPUTAR
             </span>
-            <span className="absolute right-7 top-7 flex items-center gap-2.5 bg-white px-3.5 py-2 font-caption text-[13px] text-bp-ink">
-              {ducked ? <VolumeX size={16} aria-hidden /> : <Volume1 size={16} aria-hidden />}
-              AUDIO {volume}%{ducked && " · DIREDAM"}
-            </span>
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-pressed={muted}
+              aria-label={muted ? "Nyalakan suara video" : "Matikan suara video"}
+              className="pointer-events-auto absolute right-7 top-7 flex items-center gap-2.5 bg-white px-3.5 py-2 font-caption text-[13px] text-bp-ink hover:bg-bp-surface-2"
+            >
+              {muted || ducked ? <VolumeX size={16} aria-hidden /> : <Volume1 size={16} aria-hidden />}
+              {muted ? "AUDIO MATI · KLIK UNTUK SUARA" : `AUDIO ${volume}%${ducked ? " · DIREDAM" : ""}`}
+            </button>
             <div className="absolute inset-x-0 bottom-0 h-80 bg-[linear-gradient(to_bottom,#0B2A8600,#0B1A30CC)]" />
             <div className="absolute inset-x-7 bottom-7 flex flex-col gap-4">
               <p className="truncate font-display text-[44px] font-medium tracking-[-1px] text-white">{info.title}</p>

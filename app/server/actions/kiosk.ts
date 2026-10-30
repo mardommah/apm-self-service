@@ -24,6 +24,7 @@ type Input =
   | {
       action: "create";
       serviceCode: string;
+      skipMlite?: boolean;
       destinationServiceCode?: string;
       patientStatus?: "baru" | "lama";
     };
@@ -147,7 +148,7 @@ export const kioskAction = createServerFn({ method: "POST" })
       data.destinationServiceCode && data.patientStatus
         ? { destinationServiceCode: data.destinationServiceCode, patientStatus: data.patientStatus }
         : undefined;
-    const result = await createVisit(data.serviceCode, registration);
+    const result = await createVisit(data.serviceCode, registration, undefined, { skipMlite: data.skipMlite === true });
     if (registration) {
       setCookie("bpjs_kiosk_visit_id", result.id, {
         httpOnly: true,

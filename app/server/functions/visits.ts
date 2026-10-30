@@ -76,6 +76,7 @@ export async function createVisit(
   serviceCode: string,
   registration?: { destinationServiceCode: string; patientStatus: "baru" | "lama" },
   offline?: { id: string; createdAt: Date; queueNumber: string },
+  options?: { skipMlite?: boolean },
 ) {
   const db = getDb();
 
@@ -107,7 +108,7 @@ export async function createVisit(
   const id = offline?.id ?? ulid();
   // shortcut: offline tickets synced later keep their O-number and get no mLITE row; staff record them in mLITE manually.
   const queueType = MLITE_QUEUE_BY_SERVICE[service.code];
-  const mliteNote = !offline && queueType ? await createMliteNote(queueType) : null;
+  const mliteNote = !offline && !options?.skipMlite && queueType ? await createMliteNote(queueType) : null;
   await db
     .insert(visits)
     .values({

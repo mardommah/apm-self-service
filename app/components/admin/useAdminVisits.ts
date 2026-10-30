@@ -22,7 +22,10 @@ export function useAdminVisits() {
       setApplied(f);
       setData(result);
       setPage(result.page);
-    } catch {
+    } catch (error) {
+      const { clearToken, isUnauthorized } = await import("~/lib/auth-client");
+      if (!isUnauthorized(error)) return;
+      clearToken();
       navigate({ to: "/admin/login" });
     }
   }

@@ -1,27 +1,25 @@
-import { Volume2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { isAudioUnlocked, unlockAudio } from "~/lib/announce";
 
-/** Shown until the browser allows audio; one click enables bell + voice for the rest of the session. */
+/**
+ * Invisible: the first click/key anywhere on the TV page enables bell + voice (Chrome blocks audio until then).
+ * PC TV runs Chrome with --autoplay-policy=no-user-gesture-required, so it never needs the click.
+ */
 export function DisplaySoundGate() {
-  const [locked, setLocked] = useState(false);
-
   useEffect(() => {
-    setLocked(!isAudioUnlocked());
+    if (isAudioUnlocked()) return;
+    const unlock = () => {
+      void unlockAudio();
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
   }, []);
 
-  if (!locked) return null;
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        await unlockAudio();
-        setLocked(false);
-      }}
-      className="fixed bottom-24 right-8 z-40 flex items-center gap-3 border-2 border-white bg-bp-accent px-6 py-4 font-body text-xl font-medium text-white"
-    >
-      <Volume2 size={24} aria-hidden />
-      Klik untuk mengaktifkan suara panggilan
-    </button>
-  );
+  return null;
 }

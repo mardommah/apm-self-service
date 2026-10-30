@@ -110,7 +110,10 @@ function DashboardPage() {
   async function fetchData(t: string) {
     try {
       setData(await getDashboardDataAction({ data: { token: t } }));
-    } catch {
+    } catch (error) {
+      const { clearToken, isUnauthorized } = await import("~/lib/auth-client");
+      if (!isUnauthorized(error)) return;
+      clearToken();
       navigate({ to: "/admin/login" });
     }
   }

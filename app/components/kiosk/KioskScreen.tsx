@@ -40,9 +40,10 @@ export const getServicesAction = () =>
 const createVisitAction = (
   serviceCode: string,
   registration?: { destinationServiceCode: string; patientStatus: "baru" | "lama" },
+  skipMlite?: boolean,
 ) =>
   kioskAction({
-    data: { action: "create", serviceCode, ...registration },
+    data: { action: "create", serviceCode, skipMlite, ...registration },
   }) as Promise<CreateVisitResult>;
 const checkinAction = (bookingCode: string, cardNumber: string, source: "manual" | "qr") =>
   kioskAction({ data: { action: "checkin", bookingCode, cardNumber, source } }) as Promise<CheckinResult>;
@@ -277,7 +278,8 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
     setLoading(true);
     setError("");
     try {
-      const visitId = await createVisitAction(serviceCode, registration).then(
+      // Kiosk 2 tickets are not recorded in mLITE yet (app numbers only).
+      const visitId = await createVisitAction(serviceCode, registration, bpjsDirectPrint).then(
         (result) => result.id,
         (cause) => {
           const service = services.find((s) => s.code === serviceCode);

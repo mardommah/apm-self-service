@@ -1,9 +1,9 @@
 import type { RowDataPacket } from "mysql2/promise";
+import { directMoveCounter, directSetPanggil, directSimpanNoRm, MLITE_DIRECT_DB, type MliteType } from "./mlite-direct";
 import { getSimrsPool } from "./simrs";
 
 // Same endpoints the mLITE pemanggil pages use (anjungan/setpanggil, anjungan/simpannorm).
 // `type` is what those pages send: "loket" (type Loket, A) or "cs" (type CS, B).
-type MliteType = "loket" | "cs";
 
 function anjunganUrl(endpoint: string, params: Record<string, string>) {
   const url = new URL(process.env.MLITE_GENERAL_PATIENT_URL ?? "");
@@ -32,6 +32,10 @@ async function callAnjunganJson(endpoint: string, params: Record<string, string>
  * A recall is only the bullhorn button: setpanggil again.
  */
 export async function callMliteLoket(noantrian: string, type: MliteType, loket: number, recall: boolean) {
+  if (MLITE_DIRECT_DB) {
+    if (!recall) await directMoveCounter(getSimrsPool(), type, noantrian, loket);
+    return directSetPanggil(getSimrsPool(), type, noantrian, loket);
+  }
   const counter = String(loket);
   const show = `panggil_${type}`;
   if (!recall) {
@@ -43,7 +47,8 @@ export async function callMliteLoket(noantrian: string, type: MliteType, loket: 
 
 /** simpannorm only accepts a 6-character RM; verified by reading the row back by its kd. */
 export async function saveMliteRm(kd: number, noantrian: string, type: MliteType, noRkmMedis: string) {
-  await callAnjunganJson("simpannorm", { noantrian, type, no_rkm_medis: noRkmMedis });
+  if (MLITE_DIRECT_DB) await directSimpanNoRm(getSimrsPool(), type, noantrian, noRkmMedis);
+  else await callAnjunganJson("simpannorm", { noantrian, type, no_rkm_medis: noRkmMedis });
   const [rows] = await getSimrsPool().query<RowDataPacket[]>(
     "SELECT no_rkm_medis FROM mlite_antrian_loket WHERE kd = ?",
     [kd],
