@@ -10,8 +10,10 @@ import {
   updateAutoPrintSettingAction,
   updateBookingScannerSettingAction,
   updateFristaBypassSettingAction,
+  updateDisplayPlaylistAction,
   updateKioskReturnSecondsAction,
 } from "~/server/actions/dashboard-settings";
+import { callVisitAction } from "~/server/actions/display";
 import { deleteAction, revokeAction, serveAction } from "~/server/actions/dashboard-visits";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -54,13 +56,29 @@ function SettingSwitch({
   );
 }
 
+const LOKET_COUNT = 9;
+const LOKET_STORAGE_KEY = "admin-loket";
+
+type Filters = { status: string; serviceCode: string; dateFrom: string; dateTo: string; search: string };
+
+function todayString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function defaultFilters(): Filters {
+  const today = todayString();
+  return { status: "", serviceCode: "", dateFrom: today, dateTo: today, search: "" };
+}
+
 function DashboardPage() {
   const navigate = useNavigate();
   const [token, setToken] = useState<string>("");
   const [data, setData] = useState<Awaited<ReturnType<typeof getDashboardDataAction>> | null>(null);
   const [loadingVisit, setLoadingVisit] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [serviceFilter, setServiceFilter] = useState("");
+  const [filters, setFilters] = useState<Filters>(defaultFilters);
+  // Filters the current table data was fetched with; edits in the form apply only on submit.
+  const [appliedFilters, setAppliedFilters] = useState<Filters>(defaultFilters);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [page, setPage] = useState(1);
   const [poliCode, setPoliCode] = useState("poli_");
@@ -74,6 +92,9 @@ function DashboardPage() {
   const [savingFristaBypass, setSavingFristaBypass] = useState(false);
   const [kioskReturnSeconds, setKioskReturnSeconds] = useState<string | null>(null);
   const [savingKioskReturn, setSavingKioskReturn] = useState(false);
+  const [displayPlaylist, setDisplayPlaylist] = useState<string | null>(null);
+  const [savingDisplayPlaylist, setSavingDisplayPlaylist] = useState(false);
+  const [loket, setLoket] = useState(1);
 
   useEffect(() => {
     async function init() {
@@ -84,25 +105,31 @@ function DashboardPage() {
       }
       const t = getToken()!;
       setToken(t);
-      fetchData(t, "", "", 1);
+      fetchData(t, defaultFilters(), 1);
     }
     init();
   }, []);
 
   useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem(LOKET_STORAGE_KEY));
+      if (saved >= 1 && saved <= LOKET_COUNT) setLoket(saved);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     if (!token || !autoRefresh) return;
     const interval = setInterval(
-      () => fetchData(token, statusFilter, serviceFilter, page),
+      () => fetchData(token, appliedFilters, page),
       30_000,
     );
     return () => clearInterval(interval);
-  }, [token, autoRefresh, statusFilter, serviceFilter, page]);
+  }, [token, autoRefresh, appliedFilters, page]);
 
-  async function fetchData(t: string, status?: string, service?: string, targetPage = page) {
+  async function fetchData(t: string, f: Filters = appliedFilters, targetPage = page) {
     try {
-      const result = await getDashboardDataAction({
-        data: { token: t, status, serviceCode: service, page: targetPage },
-      });
+      const result = await getDashboardDataAction({ data: { token: t, ...f, page: targetPage } });
+      setAppliedFilters(f);
       setData(result);
       setPage(result.page);
     } catch {
@@ -110,8 +137,9 @@ function DashboardPage() {
     }
   }
 
-  async function handleApplyFilter() {
-    if (token) fetchData(token, statusFilter, serviceFilter, 1);
+  async function handleApplyFilter(event?: React.FormEvent) {
+    event?.preventDefault();
+    if (token) fetchData(token, filters, 1);
   }
 
   async function handleCreatePoli(event: React.FormEvent) {
@@ -123,7 +151,7 @@ function DashboardPage() {
       await createPoliAction({ data: { token, code: poliCode, label: poliLabel } });
       setPoliCode("poli_");
       setPoliLabel("");
-      await fetchData(token, statusFilter, serviceFilter, page);
+      await fetchData(token, appliedFilters, page);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       setPoliError(
@@ -142,7 +170,7 @@ function DashboardPage() {
     setPoliError("");
     try {
       await updatePoliAction({ data: { token, id, label, isActive } });
-      await fetchData(token, statusFilter, serviceFilter, page);
+      await fetchData(token, appliedFilters, page);
     } catch {
       setPoliError("Poli gagal diperbarui.");
     } finally {
@@ -155,7 +183,7 @@ function DashboardPage() {
     setSavingBarcode(true);
     try {
       await updateBarcodeSettingAction({ data: { token, enabled } });
-      await fetchData(token, statusFilter, serviceFilter, page);
+      await fetchData(token, appliedFilters, page);
     } finally {
       setSavingBarcode(false);
     }
@@ -166,7 +194,7 @@ function DashboardPage() {
     setSavingFristaBypass(true);
     try {
       await updateFristaBypassSettingAction({ data: { token, enabled } });
-      await fetchData(token, statusFilter, serviceFilter, page);
+      await fetchData(token, appliedFilters, page);
     } finally {
       setSavingFristaBypass(false);
     }
@@ -177,7 +205,7 @@ function DashboardPage() {
     setSavingAutoPrint(true);
     try {
       await updateAutoPrintSettingAction({ data: { token, enabled } });
-      await fetchData(token, statusFilter, serviceFilter, page);
+      await fetchData(token, appliedFilters, page);
     } finally {
       setSavingAutoPrint(false);
     }
@@ -189,7 +217,7 @@ function DashboardPage() {
     setSavingKioskReturn(true);
     try {
       await updateKioskReturnSecondsAction({ data: { token, seconds: Number(kioskReturnSeconds) } });
-      await fetchData(token, statusFilter, serviceFilter, page);
+      await fetchData(token, appliedFilters, page);
       setKioskReturnSeconds(null);
     } finally {
       setSavingKioskReturn(false);
@@ -201,7 +229,7 @@ function DashboardPage() {
     setSavingBookingScanner(true);
     try {
       await updateBookingScannerSettingAction({ data: { token, enabled } });
-      await fetchData(token, statusFilter, serviceFilter, page);
+      await fetchData(token, appliedFilters, page);
     } finally {
       setSavingBookingScanner(false);
     }
@@ -212,7 +240,7 @@ function DashboardPage() {
     setLoadingVisit(visitId);
     try {
       await serveAction({ data: { token, visitId } });
-      fetchData(token, statusFilter, serviceFilter);
+      fetchData(token);
     } finally {
       setLoadingVisit(null);
     }
@@ -223,7 +251,7 @@ function DashboardPage() {
     setLoadingVisit(visitId);
     try {
       await revokeAction({ data: { token, visitId } });
-      fetchData(token, statusFilter, serviceFilter);
+      fetchData(token);
     } finally {
       setLoadingVisit(null);
     }
@@ -234,9 +262,43 @@ function DashboardPage() {
     setLoadingVisit(visitId);
     try {
       await deleteAction({ data: { token, visitId } });
-      fetchData(token, statusFilter, serviceFilter);
+      fetchData(token);
     } finally {
       setLoadingVisit(null);
+    }
+  }
+
+  async function handleCall(visit: { id: string }) {
+    if (!token) return;
+    setLoadingVisit(visit.id);
+    try {
+      await callVisitAction({ data: { token, visitId: visit.id, loket } });
+    } catch {
+      alert("Gagal memanggil antrian. Coba lagi.");
+    } finally {
+      setLoadingVisit(null);
+    }
+  }
+
+  function handleLoketChange(value: number) {
+    setLoket(value);
+    try {
+      localStorage.setItem(LOKET_STORAGE_KEY, String(value));
+    } catch {}
+  }
+
+  async function handleDisplayPlaylist(event: React.FormEvent) {
+    event.preventDefault();
+    if (!token || displayPlaylist === null) return;
+    setSavingDisplayPlaylist(true);
+    try {
+      await updateDisplayPlaylistAction({ data: { token, playlist: displayPlaylist } });
+      await fetchData(token, appliedFilters, page);
+      setDisplayPlaylist(null);
+    } catch {
+      alert("ID / URL playlist YouTube tidak valid.");
+    } finally {
+      setSavingDisplayPlaylist(false);
     }
   }
 
@@ -336,6 +398,31 @@ function DashboardPage() {
                   className="h-10 w-20 rounded-md border border-gray-300 px-3 text-sm"
                 />
                 <Button type="submit" size="sm" disabled={savingKioskReturn}>
+                  Simpan
+                </Button>
+              </div>
+            </form>
+
+            <form
+              onSubmit={handleDisplayPlaylist}
+              className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4"
+            >
+              <div>
+                <p className="font-medium text-gray-800">Playlist YouTube display</p>
+                <p className="text-sm text-gray-500">
+                  ID atau URL playlist untuk video di layar TV <code>/display</code>. Kosongkan untuk menyembunyikan video.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <input
+                  type="text"
+                  value={displayPlaylist ?? data.displayYoutubePlaylist}
+                  onChange={(event) => setDisplayPlaylist(event.target.value)}
+                  placeholder="PLxxxxxxxx"
+                  aria-label="Playlist YouTube display"
+                  className="h-10 w-64 rounded-md border border-gray-300 px-3 text-sm"
+                />
+                <Button type="submit" size="sm" disabled={savingDisplayPlaylist}>
                   Simpan
                 </Button>
               </div>
@@ -507,7 +594,7 @@ function DashboardPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => fetchData(token, statusFilter, serviceFilter)}
+                onClick={() => fetchData(token)}
               >
                 🔄 Refresh
               </Button>
@@ -517,12 +604,49 @@ function DashboardPage() {
         </section>
 
         {/* Filters */}
-        <section className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end">
+        <form
+          onSubmit={handleApplyFilter}
+          className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end"
+        >
+          <div className="flex flex-col gap-1 min-w-[220px] flex-1">
+            <label htmlFor="visit-search" className="text-xs font-medium text-gray-600">Cari</label>
+            <input
+              id="visit-search"
+              type="search"
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+              placeholder="No. kunjungan, layanan, atau nomor offline (O001)"
+              className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
+            />
+          </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Status</label>
+            <label htmlFor="visit-date-from" className="text-xs font-medium text-gray-600">Dari Tanggal</label>
+            <input
+              id="visit-date-from"
+              type="date"
+              value={filters.dateFrom}
+              max={filters.dateTo || undefined}
+              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="visit-date-to" className="text-xs font-medium text-gray-600">Sampai Tanggal</label>
+            <input
+              id="visit-date-to"
+              type="date"
+              value={filters.dateTo}
+              min={filters.dateFrom || undefined}
+              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="visit-status" className="text-xs font-medium text-gray-600">Status</label>
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              id="visit-status"
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
             >
               <option value="">Semua Status</option>
@@ -532,10 +656,11 @@ function DashboardPage() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Layanan</label>
+            <label htmlFor="visit-service" className="text-xs font-medium text-gray-600">Layanan</label>
             <select
-              value={serviceFilter}
-              onChange={(e) => setServiceFilter(e.target.value)}
+              id="visit-service"
+              value={filters.serviceCode}
+              onChange={(e) => setFilters({ ...filters, serviceCode: e.target.value })}
               className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
             >
               <option value="">Semua Layanan</option>
@@ -544,44 +669,60 @@ function DashboardPage() {
               ))}
             </select>
           </div>
-          <Button onClick={handleApplyFilter} size="sm">
+          <Button type="submit" size="sm">
             Terapkan Filter
           </Button>
-          {(statusFilter || serviceFilter) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setStatusFilter("");
-                setServiceFilter("");
-                fetchData(token, "", "", 1);
-              }}
-            >
-              Reset
-            </Button>
-          )}
-        </section>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const reset = defaultFilters();
+              setFilters(reset);
+              fetchData(token, reset, 1);
+            }}
+          >
+            Hari Ini
+          </Button>
+        </form>
 
         {/* Table */}
         <section>
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">
-            Daftar Kunjungan
-            <span className="ml-2 text-sm font-normal text-gray-400">
-              ({data.totalVisits} record)
-            </span>
-          </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-gray-800">
+              {appliedFilters.dateFrom === todayString() && appliedFilters.dateTo === todayString()
+                ? "Antrian Hari Ini"
+                : "Daftar Kunjungan"}
+              <span className="ml-2 text-sm font-normal text-gray-400">
+                ({data.totalVisits} record)
+              </span>
+            </h2>
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              Loket saya
+              <select
+                value={loket}
+                onChange={(e) => handleLoketChange(Number(e.target.value))}
+                className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
+              >
+                {Array.from({ length: LOKET_COUNT }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>Loket {n}</option>
+                ))}
+              </select>
+            </label>
+          </div>
           <VisitsTable
             visits={data.visits as any}
             onServe={handleServe}
             onRevoke={handleRevoke}
             onDelete={handleDelete}
+            onCall={handleCall}
             loading={loadingVisit}
           />
           <nav className="mt-4 flex items-center justify-between" aria-label="Pagination kunjungan">
               <Button
                 variant="outline"
                 disabled={page <= 1}
-                onClick={() => fetchData(token, statusFilter, serviceFilter, page - 1)}
+                onClick={() => fetchData(token, appliedFilters, page - 1)}
               >
                 ← Sebelumnya
               </Button>
@@ -591,7 +732,7 @@ function DashboardPage() {
               <Button
                 variant="outline"
                 disabled={page >= Math.ceil(data.totalVisits / data.pageSize)}
-                onClick={() => fetchData(token, statusFilter, serviceFilter, page + 1)}
+                onClick={() => fetchData(token, appliedFilters, page + 1)}
               >
                 Berikutnya →
               </Button>

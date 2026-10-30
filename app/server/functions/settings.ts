@@ -95,3 +95,21 @@ export async function setKioskReturnSeconds(kioskReturnSeconds: number) {
       set: { kioskReturnSeconds, updatedAt: new Date() },
     });
 }
+
+export async function getDisplayYoutubePlaylist() {
+  const [settings] = await getDb()
+    .select({ displayYoutubePlaylist: appSettings.displayYoutubePlaylist })
+    .from(appSettings)
+    .where(eq(appSettings.id, SETTINGS_ID))
+    .limit(1);
+  return settings?.displayYoutubePlaylist ?? "";
+}
+
+export async function setDisplayYoutubePlaylist(displayYoutubePlaylist: string) {
+  await getDb()
+    .insert(appSettings)
+    .values({ id: SETTINGS_ID, displayYoutubePlaylist, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({
+      set: { displayYoutubePlaylist, updatedAt: new Date() },
+    });
+}

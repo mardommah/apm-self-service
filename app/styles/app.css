@@ -78,6 +78,57 @@
   .marquee-track { animation: none; }
 }
 
+/* Display call overlay (DESIGN.md §9.7) */
+@keyframes display-ring {
+  from { scale: 0.7; opacity: 0.9; }
+  to { scale: 1.25; opacity: 0; }
+}
+@keyframes display-pop {
+  0% { scale: 0.6; opacity: 0; }
+  60% { scale: 1.08; opacity: 1; }
+  100% { scale: 1; }
+}
+@keyframes display-wave {
+  0%, 100% { scale: 1 0.35; }
+  50% { scale: 1 1; }
+}
+@keyframes display-backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(14px); }
+}
+@keyframes display-card-in {
+  from { translate: 0 40px; scale: 0.92; }
+}
+@keyframes display-slide-in {
+  from { translate: -24px 0; opacity: 0; }
+}
+@keyframes display-glow {
+  50% { text-shadow: 0 0 48px #93c5fd99; }
+}
+@keyframes display-flash {
+  50% { background-color: var(--color-bp-sky); }
+}
+.display-backdrop {
+  backdrop-filter: blur(14px);
+  animation: display-backdrop-in 300ms ease-out backwards;
+  transition: opacity 400ms ease-in;
+}
+.display-backdrop.display-leave { opacity: 0; }
+.display-card { animation: display-card-in 300ms ease-out both; }
+.display-number {
+  animation:
+    display-pop 500ms cubic-bezier(0.34, 1.56, 0.64, 1) 300ms both,
+    display-glow 600ms ease-in-out 800ms 3;
+}
+.display-loket { animation: display-slide-in 300ms ease-out 450ms both; }
+.display-ring { animation: display-ring 2.2s ease-out infinite; }
+.display-wave { animation: display-wave 0.9s ease-in-out infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) {
+  .display-ring { display: none; }
+  .display-number, .display-loket, .display-card, .display-wave { animation: none; }
+  .display-backdrop { animation: fade 200ms ease-out backwards; transition-duration: 200ms; }
+}
+
 /* Print styles */
 @media print {
   .no-print { display: none !important; }

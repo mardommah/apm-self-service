@@ -39,6 +39,7 @@ export const appSettings = mysqlTable("app_settings", {
   fristaBypassEnabled: boolean("frista_bypass_enabled").default(false).notNull(),
   autoPrintEnabled: boolean("auto_print_enabled").default(true).notNull(),
   kioskReturnSeconds: int("kiosk_return_seconds").default(30).notNull(),
+  displayYoutubePlaylist: varchar("display_youtube_playlist", { length: 255 }).default("").notNull(),
   updatedAt: datetime("updated_at").default(new Date()).notNull(),
 });
 
@@ -65,6 +66,21 @@ export const visits = mysqlTable(
     deviceStatusIdx: index("idx_device_status").on(table.deviceId, table.status),
     createdAtIdx: index("idx_created_at").on(table.createdAt),
     serviceIdx: index("idx_service_id").on(table.serviceId),
+  })
+);
+
+export const queueCalls = mysqlTable(
+  "queue_calls",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    visitId: varchar("visit_id", { length: 26 }).notNull(),
+    loket: int("loket").notNull(),
+    isRecall: boolean("is_recall").default(false).notNull(),
+    calledAt: datetime("called_at").notNull(),
+  },
+  (table) => ({
+    calledAtIdx: index("idx_queue_calls_called_at").on(table.calledAt),
+    visitIdx: index("idx_queue_calls_visit").on(table.visitId),
   })
 );
 

@@ -110,8 +110,14 @@ dont generate app.config.timestamp_xxxx logs
 
 - UI kiosk ada di `app/components/kiosk/KioskScreen.tsx`; route `/kiosk` dan `/kiosk2` hanya wrapper tipis (loader `getServicesAction`).
 - `/kiosk2` (`bpjsDirectPrint`): kartu BPJS langsung `createVisit("registrasi")` tanpa pilih pasien baru/lama, cek booking, atau Frista → halaman `/kiosk/qr/$visitId?from=kiosk2` (QR + cetak struk). `poli_umum` juga langsung `createVisit` (tanpa `GeneralPatientPanel`). Layanan lain sama dengan `/kiosk`.
-- `/kiosk2` offline-first (`app/lib/offline-kiosk.ts`): loader menyimpan `KioskData` ke localStorage dan memakai cache saat server tidak terjangkau. Jika `createVisit` gagal, tiket dibuat lokal (ULID + nomor `O001`, reset harian) di outbox; halaman tiket membacanya dari outbox. `startBackgroundSync` (setiap 15 detik + event `online`) mengirim outbox via `kioskAction` `sync` (idempoten per id). Nomor offline disimpan di `visits.notes` (`offline:O001`) dan tidak ikut dihitung `getDailyQueueNumber`. Reload browser saat offline tetap gagal (tanpa Service Worker).
+- `/kiosk2` offline-first (`app/lib/offline-kiosk.ts`): loader cache-first: `KioskData` dari localStorage langsung tampil, fetch di belakang memperbarui cache untuk pembukaan berikutnya. Jika `createVisit` gagal, tiket dibuat lokal (ULID + nomor `O001`, reset harian) di outbox; halaman tiket membaca outbox dulu sebelum server. `startBackgroundSync` (setiap 15 detik + event `online`) mengirim outbox via `kioskAction` `sync` (idempoten per id). Nomor offline disimpan di `visits.notes` (`offline:O001`) dan tidak ikut dihitung `getDailyQueueNumber`. Reload browser saat offline tetap gagal (tanpa Service Worker).
 - `?from=kiosk2` membuat tombol kembali & timeout di `QRDisplay` (`homePath`) kembali ke `/kiosk2`.
 - Setelah tambah/ubah file route, regenerasi `app/routeTree.gen.ts` (dev server melakukannya otomatis, atau pakai `generator` dari `@tanstack/router-generator`).
 - Setting `auto_print_enabled` (default TRUE, migration `0009`) → `QRDisplay` memanggil `printTicket` sekali saat halaman tiket terbuka (guard `useRef`). Toggle "Cetak struk otomatis" di Pengaturan Aplikasi admin. Berlaku untuk semua halaman tiket `/kiosk/qr/$visitId` (kiosk 1 & 2).
 - Setting `kiosk_return_seconds` (default 30, migration `0010`, validasi 5–600) → timeout kembali otomatis halaman tiket `/kiosk/qr/$visitId`. Diatur di Pengaturan Aplikasi admin; menggantikan env `KIOSK_TIMEOUT_MS`.
+
+## Panggil antrian & display TV
+
+- Tombol "🔊 Panggil" di `/admin/dashboard` memanggil `callVisitAction` → tabel `queue_calls` (migration `0012`, kolom `loket`, `is_recall`). Nomor loket dipilih admin ("Loket saya", localStorage `admin-loket`).
+- `/display` (tanpa login, `app/components/display/`) polling `getDisplayAction({ afterId })` tiap 2 detik; panggilan baru diputar FIFO: bel Web Audio, overlay, suara 2× (`app/lib/announce.ts`: ResponsiveVoice "Indonesian Female", key `VITE_RESPONSIVEVOICE_KEY`, fallback `speechSynthesis`).
+- Video kiri: playlist YouTube dari setting `display_youtube_playlist` (Pengaturan Aplikasi admin).

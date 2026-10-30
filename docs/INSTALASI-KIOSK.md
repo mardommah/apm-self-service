@@ -20,3 +20,14 @@
 5. Untuk auto start, jalankan `.\install-frista-autostart.ps1` sebagai pengguna Windows kiosk, lalu login ulang. Skrip membuat shortcut Startup yang menjalankan bot, agent, dan membuka Frista setelah login. Jangan pasang auto start agent kedua.
 
 Log kegagalan tersedia di `C:\frista-services\logs`. Uji dari kiosk: **Pasien BPJS → Pasien Lama → Cek Booking / Uji Frista** dengan nomor dummy 13 digit saat mode pengujian aktif.
+
+## PC TV Display Antrean (`/display`)
+
+Jalankan Chrome dalam mode kiosk dengan izin autoplay, supaya video YouTube, bel, dan suara panggilan
+terdengar tanpa klik:
+
+```
+chrome.exe --kiosk --autoplay-policy=no-user-gesture-required http://<server>/display
+```
+
+Playlist video diatur di Pengaturan Aplikasi admin ("Playlist YouTube display").

@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, desc, gte, lte, count, sql, ne, notLike, or, isNull } from "drizzle-orm";
+import { eq, and, desc, gte, lte, count, sql, ne, like, notLike, or, isNull } from "drizzle-orm";
 import { getDb } from "../db";
 import { visits, services, admins } from "../schema";
 import { ulid } from "~/lib/ulid";
@@ -212,29 +212,30 @@ export async function deleteVisit(id: string) {
 }
 
 // ─── List visits (admin) ──────────────────────────────────────────────────────
-export async function listVisits(filters?: {
+export interface VisitFilters {
   status?: VisitStatus;
   serviceCode?: string;
   dateFrom?: Date;
   dateTo?: Date;
-  limit?: number;
-  offset?: number;
-}) {
-  const db = getDb();
-  const conditions = [];
+  search?: string;
+}
 
-  if (filters?.status) {
-    conditions.push(eq(visits.status, filters.status));
+function visitConditions(filters?: VisitFilters) {
+  const conditions = [];
+  if (filters?.status) conditions.push(eq(visits.status, filters.status));
+  if (filters?.serviceCode) conditions.push(eq(services.code, filters.serviceCode));
+  if (filters?.dateFrom) conditions.push(gte(visits.createdAt, filters.dateFrom));
+  if (filters?.dateTo) conditions.push(lte(visits.createdAt, filters.dateTo));
+  if (filters?.search) {
+    const pattern = `%${filters.search}%`;
+    conditions.push(or(like(visits.id, pattern), like(visits.notes, pattern), like(services.label, pattern))!);
   }
-  if (filters?.serviceCode) {
-    conditions.push(eq(services.code, filters.serviceCode));
-  }
-  if (filters?.dateFrom) {
-    conditions.push(gte(visits.createdAt, filters.dateFrom));
-  }
-  if (filters?.dateTo) {
-    conditions.push(lte(visits.createdAt, filters.dateTo));
-  }
+  return conditions;
+}
+
+export async function listVisits(filters?: VisitFilters & { limit?: number; offset?: number }) {
+  const db = getDb();
+  const conditions = visitConditions(filters);
 
   const query = db
     .select({
@@ -266,13 +267,8 @@ export async function listVisits(filters?: {
   return query;
 }
 
-export async function countVisits(filters?: {
-  status?: VisitStatus;
-  serviceCode?: string;
-}) {
-  const conditions = [];
-  if (filters?.status) conditions.push(eq(visits.status, filters.status));
-  if (filters?.serviceCode) conditions.push(eq(services.code, filters.serviceCode));
+export async function countVisits(filters?: VisitFilters) {
+  const conditions = visitConditions(filters);
 
   const query = getDb()
     .select({ total: count() })

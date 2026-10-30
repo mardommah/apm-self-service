@@ -5,6 +5,7 @@ import { formatDate, formatTime, SERVICE_ICONS, STATUS_LABELS } from "~/lib/util
 
 interface VisitRow {
   id: string;
+  queueNumber: string;
   status: string;
   createdAt: Date | string;
   scannedAt?: Date | string | null;
@@ -18,6 +19,7 @@ interface Props {
   onServe: (id: string) => Promise<void>;
   onRevoke: (id: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onCall: (visit: VisitRow) => Promise<void>;
   loading?: string | null; // visit id being processed
 }
 
@@ -27,15 +29,15 @@ const statusVariant: Record<string, "warning" | "success" | "destructive" | "sec
   revoked: "destructive",
 };
 
-export function VisitsTable({ visits, onServe, onRevoke, onDelete, loading }: Props) {
+export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, loading }: Props) {
   const [confirm, setConfirm] = useState<{ action: "revoke" | "delete"; id: string } | null>(null);
 
   if (visits.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400">
         <div className="text-5xl mb-3">📭</div>
-        <p className="text-lg font-medium">Belum ada kunjungan</p>
-        <p className="text-sm mt-1">Data akan muncul ketika pasien melakukan registrasi</p>
+        <p className="text-lg font-medium">Tidak ada kunjungan</p>
+        <p className="text-sm mt-1">Tidak ada data untuk filter ini</p>
       </div>
     );
   }
@@ -86,6 +88,7 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, loading }: Pr
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">No. Antrian</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-600">No. Kunjungan</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-600">Layanan</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-600">Tanggal & Waktu</th>
@@ -98,6 +101,9 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, loading }: Pr
           <tbody className="divide-y divide-gray-100">
             {visits.map((v) => (
               <tr key={v.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3 font-mono text-base font-bold text-gray-900">
+                  {v.queueNumber}
+                </td>
                 <td className="px-4 py-3 font-mono text-xs text-gray-700 max-w-[140px] truncate">
                   {v.id}
                 </td>
@@ -139,6 +145,11 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, loading }: Pr
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-2">
+                    {v.status === "waiting" && (
+                      <Button size="sm" variant="outline" disabled={loading === v.id} onClick={() => onCall(v)}>
+                        🔊 Panggil
+                      </Button>
+                    )}
                     {v.status === "waiting" && (
                       <Button
                         size="sm"

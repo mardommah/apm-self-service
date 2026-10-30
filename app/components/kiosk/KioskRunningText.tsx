@@ -17,7 +17,13 @@ function Messages({ messages, hidden }: { messages: string[]; hidden?: boolean }
   );
 }
 
-export function KioskRunningText({ messages = RUNNING_TEXT_MESSAGES }: { messages?: string[] }) {
+export function KioskRunningText({
+  messages = RUNNING_TEXT_MESSAGES,
+  size = "kiosk",
+}: {
+  messages?: string[];
+  size?: "kiosk" | "display";
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [reduced, setReduced] = useState(false);
   const [current, setCurrent] = useState(0);
@@ -44,7 +50,7 @@ export function KioskRunningText({ messages = RUNNING_TEXT_MESSAGES }: { message
     <div
       role="marquee"
       aria-label="Pengumuman"
-      className="flex h-14 items-center overflow-hidden bg-bp-accent-ink lg:col-span-2"
+      className={`flex ${size === "display" ? "h-16" : "h-14"} shrink-0 items-center overflow-hidden bg-bp-accent-ink lg:col-span-2`}
     >
       <div className="flex h-full shrink-0 items-center gap-2.5 bg-white px-[22px] text-bp-accent-ink">
         <Megaphone size={20} aria-hidden />

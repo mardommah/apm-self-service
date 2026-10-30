@@ -12,6 +12,7 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as Kiosk2Import } from './routes/kiosk2'
+import { Route as DisplayImport } from './routes/display'
 import { Route as IndexImport } from './routes/index'
 import { Route as KioskIndexImport } from './routes/kiosk/index'
 import { Route as VisitVisitIdImport } from './routes/visit.$visitId'
@@ -25,6 +26,12 @@ import { Route as KioskQrVisitIdImport } from './routes/kiosk/qr.$visitId'
 const Kiosk2Route = Kiosk2Import.update({
   id: '/kiosk2',
   path: '/kiosk2',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DisplayRoute = DisplayImport.update({
+  id: '/display',
+  path: '/display',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -79,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/display': {
+      id: '/display'
+      path: '/display'
+      fullPath: '/display'
+      preLoaderRoute: typeof DisplayImport
       parentRoute: typeof rootRoute
     }
     '/kiosk2': {
@@ -137,6 +151,7 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/display': typeof DisplayRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
@@ -148,6 +163,7 @@ export interface FileRoutesByFullPath {
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/display': typeof DisplayRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
@@ -160,6 +176,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
+  '/display': typeof DisplayRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
@@ -173,6 +190,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/display'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/login'
@@ -183,6 +201,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/display'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/login'
@@ -193,6 +212,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/display'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/login'
@@ -205,6 +225,7 @@ export interface FileRouteTypes {
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DisplayRoute: typeof DisplayRoute
   Kiosk2Route: typeof Kiosk2Route
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
@@ -216,6 +237,7 @@ export interface RootRouteChildren {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DisplayRoute: DisplayRoute,
   Kiosk2Route: Kiosk2Route,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminLoginRoute: AdminLoginRoute,
@@ -236,6 +258,7 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
+        "/display",
         "/kiosk2",
         "/admin/dashboard",
         "/admin/login",
@@ -247,6 +270,9 @@ export const routeTree = rootRoute
     },
     "/": {
       "filePath": "index.tsx"
+    },
+    "/display": {
+      "filePath": "display.tsx"
     },
     "/kiosk2": {
       "filePath": "kiosk2.tsx"
