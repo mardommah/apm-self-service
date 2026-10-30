@@ -38,7 +38,10 @@ function waitingUncalled(serviceCode: string) {
 export async function getLoketCallerState() {
   return Promise.all(
     LOKET_SERVICE_CODES.map(async (code) => {
-      const [service] = await getDb().select({ label: services.label }).from(services).where(eq(services.code, code));
+      const [service] = await getDb()
+        .select({ label: services.label, queuePrefix: services.queuePrefix })
+        .from(services)
+        .where(eq(services.code, code));
       const [last] = await getDb()
         .select({ ...visitFields, loket: queueCalls.loket })
         .from(queueCalls)
@@ -51,7 +54,7 @@ export async function getLoketCallerState() {
       const current = last
         ? { id: last.id, status: last.status, loket: last.loket, queueNumber: await getDailyQueueNumber(last), linked: Boolean(parseMliteNote(last.notes)) }
         : null;
-      return { serviceCode: code, label: service?.label ?? code, prefix: mlitePrefix(code), waiting, current };
+      return { serviceCode: code, label: service?.label ?? code, prefix: mlitePrefix({ code, queuePrefix: service?.queuePrefix }), waiting, current };
     }),
   );
 }

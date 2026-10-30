@@ -18,6 +18,8 @@ export const services = mysqlTable("services", {
   label: varchar("label", { length: 100 }).notNull(),
   icon: varchar("icon", { length: 50 }),
   isActive: boolean("is_active").default(true).notNull(),
+  // Ticket prefix for mLITE services (A = antrean Loket, B = antrean CS); null for app-numbered services.
+  queuePrefix: mysqlEnum("queue_prefix", ["A", "B"]),
   createdAt: datetime("created_at").default(new Date()).notNull(),
 });
 

@@ -8,6 +8,8 @@ import {
   setKioskReturnSeconds,
   setShowBpjsTestAccounts,
 } from "../functions/settings";
+import { setServiceQueuePrefix } from "../functions/visits";
+import { isQueuePrefix, MLITE_SERVICE_CODES } from "~/lib/queue-prefix";
 import { requireAdminToken } from "./admin-auth";
 
 export const updateBarcodeSettingAction = createServerFn({ method: "POST" })
@@ -79,6 +81,19 @@ export const updateDisplayPlaylistAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     requireAdminToken(data.token, true);
     await setDisplayYoutubePlaylist(data.playlist);
+    return { ok: true };
+  });
+
+export const updateServiceQueuePrefixAction = createServerFn({ method: "POST" })
+  .validator((data: { token: string; serviceCode: string; prefix: string }) => {
+    if (!MLITE_SERVICE_CODES.includes(data.serviceCode) || !isQueuePrefix(data.prefix)) {
+      throw new Error("QUEUE_PREFIX_INVALID");
+    }
+    return { ...data, prefix: data.prefix };
+  })
+  .handler(async ({ data }) => {
+    requireAdminToken(data.token, true);
+    await setServiceQueuePrefix(data.serviceCode, data.prefix);
     return { ok: true };
   });
 

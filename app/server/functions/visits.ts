@@ -6,6 +6,7 @@ import { visits, services, admins } from "../schema";
 import { ulid } from "~/lib/ulid";
 import { createGeneralLoketQueue } from "../simrs";
 import type { VisitStatus } from "../schema";
+import { DEFAULT_QUEUE_PREFIX, MLITE_SERVICE_CODES, type QueuePrefix } from "~/lib/queue-prefix";
 
 // ─── Check device lock ────────────────────────────────────────────────────────
 export async function getActiveVisitByDevice(deviceId: string) {
@@ -42,22 +43,26 @@ export async function assertVisitOwnedByDevice(id: string, deviceId: string) {
 const OFFLINE_NOTE_PREFIX = "offline:";
 // Tickets that are also rows in SIMRS mlite_antrian_loket: "mlite:<kd>:<number>", e.g. "mlite:9600:A7".
 const MLITE_NOTE_PREFIX = "mlite:";
-// Same split as the mLITE anjungan buttons: ANTRIAN LOKET (type Loket, A) for registration, ANTRIAN CS (type CS, B).
-const MLITE_QUEUE_BY_SERVICE: Record<string, 1 | 2> = { registrasi: 1, poli_umum: 1, customer_service: 2 };
 // Lab & vaccination are called at the registration loket too, but are not recorded in mLITE (keep app numbers).
-/** Letter mLITE shows for this service's tickets ("A" Loket, "B" CS), or null when not in mLITE. */
-export function mlitePrefix(serviceCode: string) {
-  const queueType = MLITE_QUEUE_BY_SERVICE[serviceCode];
-  return queueType ? (queueType === 1 ? "A" : "B") : null;
+/** Prefix set in admin settings ("A" Loket, "B" CS) for mLITE services, or null when not in mLITE. */
+export function mlitePrefix(service: { code: string; queuePrefix?: QueuePrefix | null }) {
+  const fallback = DEFAULT_QUEUE_PREFIX[service.code];
+  return fallback ? (service.queuePrefix ?? fallback) : null;
 }
 
-export const LOKET_SERVICE_CODES = [...Object.keys(MLITE_QUEUE_BY_SERVICE), "laboratorium", "vaksinasi"];
+export const LOKET_SERVICE_CODES = [...MLITE_SERVICE_CODES, "laboratorium", "vaksinasi"];
 
 export function parseMliteNote(notes: string | null | undefined) {
   const match = notes?.match(/^mlite:(\d+):([AB])(\d+)$/);
   if (!match) return null;
   const type: "loket" | "cs" = match[2] === "B" ? "cs" : "loket";
-  return { kd: Number(match[1]), queueNumber: match[2] + match[3], noantrian: match[3], type };
+  // mLITE keeps the bare number ("1"); tickets show it padded ("A001").
+  return { kd: Number(match[1]), queueNumber: match[2] + match[3].padStart(3, "0"), noantrian: match[3], type };
+}
+
+export async function setServiceQueuePrefix(code: string, queuePrefix: QueuePrefix) {
+  if (!MLITE_SERVICE_CODES.includes(code)) throw new Error("SERVICE_NOT_IN_MLITE");
+  await getDb().update(services).set({ queuePrefix }).where(eq(services.code, code));
 }
 
 async function createMliteNote(queueType: 1 | 2) {
@@ -107,8 +112,8 @@ export async function createVisit(
 
   const id = offline?.id ?? ulid();
   // shortcut: offline tickets synced later keep their O-number and get no mLITE row; staff record them in mLITE manually.
-  const queueType = MLITE_QUEUE_BY_SERVICE[service.code];
-  const mliteNote = !offline && !options?.skipMlite && queueType ? await createMliteNote(queueType) : null;
+  const prefix = mlitePrefix(service);
+  const mliteNote = !offline && !options?.skipMlite && prefix ? await createMliteNote(prefix === "A" ? 1 : 2) : null;
   await db
     .insert(visits)
     .values({

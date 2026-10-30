@@ -15,7 +15,9 @@ import {
   updateBpjsTestAccountsSettingAction,
   updateDisplayPlaylistAction,
   updateKioskReturnSecondsAction,
+  updateServiceQueuePrefixAction,
 } from "~/server/actions/dashboard-settings";
+import { DEFAULT_QUEUE_PREFIX, QUEUE_PREFIXES } from "~/lib/queue-prefix";
 import { getSavedLoket, LOKET_COUNT, saveLoket } from "~/lib/admin-loket";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -77,6 +79,7 @@ function DashboardPage() {
   const [savingKioskReturn, setSavingKioskReturn] = useState(false);
   const [displayPlaylist, setDisplayPlaylist] = useState<string | null>(null);
   const [savingDisplayPlaylist, setSavingDisplayPlaylist] = useState(false);
+  const [savingQueuePrefix, setSavingQueuePrefix] = useState(false);
   const [loket, setLoket] = useState(1);
 
   useEffect(() => {
@@ -222,6 +225,17 @@ function DashboardPage() {
     }
   }
 
+  async function handleQueuePrefix(serviceCode: string, prefix: string) {
+    if (!token) return;
+    setSavingQueuePrefix(true);
+    try {
+      await updateServiceQueuePrefixAction({ data: { token, serviceCode, prefix } });
+      await fetchData(token);
+    } finally {
+      setSavingQueuePrefix(false);
+    }
+  }
+
   function handleLoketChange(value: number) {
     setLoket(value);
     saveLoket(value);
@@ -334,6 +348,33 @@ function DashboardPage() {
                 <BpjsTestAccounts />
               </div>
             )}
+
+            <div className="mt-4 rounded-lg border p-4">
+              <p className="font-medium text-gray-800">Prefix nomor antrean</p>
+              <p className="text-sm text-gray-500">
+                A = antrean Loket, B = antrean CS di mLITE. Tiket tampil mis. A001, di mLITE tersimpan nomor 1.
+              </p>
+              <div className="mt-3 divide-y">
+                {data.services
+                  .filter((service) => service.code in DEFAULT_QUEUE_PREFIX)
+                  .map((service) => (
+                    <label key={service.code} className="flex items-center justify-between gap-4 py-2">
+                      <span className="text-sm text-gray-700">{service.label}</span>
+                      <select
+                        value={service.queuePrefix ?? DEFAULT_QUEUE_PREFIX[service.code]}
+                        disabled={savingQueuePrefix}
+                        onChange={(event) => handleQueuePrefix(service.code, event.target.value)}
+                        aria-label={`Prefix antrean ${service.label}`}
+                        className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold disabled:opacity-60"
+                      >
+                        {QUEUE_PREFIXES.map((prefix) => (
+                          <option key={prefix} value={prefix}>{prefix}xx</option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+              </div>
+            </div>
 
             <form
               onSubmit={handleKioskReturnSeconds}
