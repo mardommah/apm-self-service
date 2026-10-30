@@ -14,7 +14,7 @@ export function KioskOtherServices({ services, startIndex, disabled, onSelect }:
   return (
     <div className="flex w-full flex-col gap-2.5">
       <div className="flex items-center justify-between font-caption text-[13px] uppercase tracking-[1.2px] text-bp-muted">
-        <span>FIG. 02 — Layanan lainnya</span>
+        <span>Layanan lainnya</span>
         <span>{num(services.length)} layanan</span>
       </div>
       <div className="flex flex-col gap-4 sm:h-[92px] sm:flex-row">

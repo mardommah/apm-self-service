@@ -19,7 +19,7 @@ export function KioskServiceGrid({ services, disabled, bpjsDirectPrint, onSelect
   return (
     <div className="flex w-full flex-1 flex-col gap-5">
       <div className="flex items-center justify-between font-caption text-[13px] uppercase tracking-[1.2px]">
-        <span className="text-bp-ink">FIG. 01 — Daftar layanan</span>
+        <span className="text-bp-ink">Daftar layanan</span>
         <span className="text-bp-muted">{String(services.length - others.length).padStart(2, "0")} layanan</span>
       </div>
       <div className="flex flex-1 flex-col gap-4 lg:flex-row">

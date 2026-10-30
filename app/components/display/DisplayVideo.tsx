@@ -17,7 +17,7 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
     <section className="flex min-w-0 flex-1 flex-col gap-5 pb-7 pl-10 pr-8 pt-8">
       <div className="flex items-center justify-between font-caption text-[13px] text-bp-muted">
         <div className="flex items-center gap-2.5">
-          <span>FIG. 01 — VIDEO YOUTUBE</span>
+          <span>VIDEO YOUTUBE</span>
           {info.author && (
             <span className="flex items-center gap-2 border border-bp-ink px-2.5 py-1 text-xs text-bp-ink">
               <YouTubeMark /> {info.author}

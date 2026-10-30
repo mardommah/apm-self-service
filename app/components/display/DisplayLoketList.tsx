@@ -34,7 +34,7 @@ export function DisplayLoketList({ lokets, flashId }: { lokets: QueueCall[]; fla
   return (
     <section className="flex flex-col gap-1 px-10 pb-5 pt-6">
       <div className="flex justify-between pb-2.5 font-caption text-[13px] text-bp-muted">
-        <span>FIG. 02 — STATUS LOKET</span>
+        <span>STATUS LOKET</span>
         <span>NOMOR DILAYANI</span>
       </div>
       {lokets.length === 0 && (
