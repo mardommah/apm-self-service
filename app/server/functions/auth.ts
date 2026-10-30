@@ -59,3 +59,16 @@ export function verifyToken(token: string): JwtPayload | null {
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 12);
 }
+
+export async function listAdmins() {
+  return getDb()
+    .select({ id: admins.id, username: admins.username, role: admins.role, lastLogin: admins.lastLogin })
+    .from(admins)
+    .orderBy(admins.username);
+}
+
+export async function createAdmin(username: string, password: string, role: Admin["role"]) {
+  await getDb()
+    .insert(admins)
+    .values({ username, password: await hashPassword(password), role, createdAt: new Date() });
+}

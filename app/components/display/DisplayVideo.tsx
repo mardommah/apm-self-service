@@ -24,7 +24,7 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
             </span>
           )}
         </div>
-        {info.total > 0 && <span>PLAYLIST {info.index} / {info.total}</span>}
+        {info.total > 1 && <span>PLAYLIST {info.index} / {info.total}</span>}
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden border border-bp-ink bg-bp-navy">
@@ -62,7 +62,7 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
         )}
       </div>
 
-      {playing && info.nextTitle && (
+      {playing && info.total > 1 && info.nextTitle && (
         <div className="flex items-center gap-4">
           <span className="font-caption text-[13px] text-bp-muted">BERIKUTNYA DI PLAYLIST</span>
           <span aria-hidden className="h-px w-6 bg-bp-faint" />

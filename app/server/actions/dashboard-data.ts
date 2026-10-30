@@ -13,7 +13,9 @@ import {
   getDisplayYoutubePlaylist,
   getFristaBypassEnabled,
   getKioskReturnSeconds,
+  getShowBpjsTestAccounts,
 } from "../functions/settings";
+import { getCallStates } from "../functions/call-finish";
 import type { VisitStatus } from "../schema";
 import { requireAdminToken } from "./admin-auth";
 
@@ -51,12 +53,19 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
       getAutoPrintEnabled(),
       getKioskReturnSeconds(),
       getDisplayYoutubePlaylist(),
+      getShowBpjsTestAccounts(),
     ]);
     const [visitRows, totalVisits, stats, services] = results;
+    const callStates = await getCallStates(visitRows.map((v) => v.id));
     const visits = await Promise.all(
-      visitRows.map(async (v) => ({ ...v, queueNumber: await getDailyQueueNumber(v) })),
+      visitRows.map(async (v) => ({
+        ...v,
+        queueNumber: await getDailyQueueNumber(v),
+        called: callStates.has(v.id),
+        callFinished: callStates.get(v.id)?.finished ?? false,
+      })),
     );
-    const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled, autoPrintEnabled, kioskReturnSeconds, displayYoutubePlaylist] = results;
+    const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled, autoPrintEnabled, kioskReturnSeconds, displayYoutubePlaylist, showBpjsTestAccounts] = results;
     return {
       visits,
       totalVisits,
@@ -70,6 +79,7 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
       autoPrintEnabled,
       kioskReturnSeconds,
       displayYoutubePlaylist,
+      showBpjsTestAccounts,
       admin: { username: payload.username, role: payload.role },
     };
   });

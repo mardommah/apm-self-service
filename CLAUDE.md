@@ -120,4 +120,8 @@ dont generate app.config.timestamp_xxxx logs
 
 - Tombol "🔊 Panggil" di `/admin/dashboard` memanggil `callVisitAction` → tabel `queue_calls` (migration `0012`, kolom `loket`, `is_recall`). Nomor loket dipilih admin ("Loket saya", localStorage `admin-loket`).
 - `/display` (tanpa login, `app/components/display/`) polling `getDisplayAction({ afterId })` tiap 2 detik; panggilan baru diputar FIFO: bel Web Audio, overlay, suara 2× (`app/lib/announce.ts`: ResponsiveVoice "Indonesian Female", key `VITE_RESPONSIVEVOICE_KEY`, fallback `speechSynthesis`).
-- Video kiri: playlist YouTube dari setting `display_youtube_playlist` (Pengaturan Aplikasi admin).
+- Tiket Pasien BPJS (`registrasi`) & Pasien Umum (`poli_umum`) online juga dibuat di SIMRS `mlite_antrian_loket` type `Loket` (via `createGeneralLoketQueue(1)`, nomor `A7`); tautan di `visits.notes` = `mlite:<kd>:A7` (`parseMliteNote`). Gagal SIMRS → tiket tetap dibuat dengan nomor app. Tabel mLITE milik SIMRS: jangan dibuat/diubah strukturnya.
+- Pemanggil loket di dashboard (`LoketCaller`, 2 kartu BPJS/Umum): Berikutnya / Lompat → `queue_calls` + mLITE `anjungan/loket?show=panggil_loket&loket=L` (end_time nomor sebelumnya) + `&antrian=N&reset=L` (counter) + `anjungan/setpanggil` (status 1, loket); Panggil Ulang → hanya `setpanggil`. Simpan RM → `anjungan/simpannorm` (RM wajib 6 digit, dicek baca-balik by `kd`) lalu visit `served`. Skema: github.com/basoro/mlite `plugins/anjungan` (Site.php, Admin.php). Kode di `app/server/mlite-loket.ts`, `functions/loket-caller.ts`.
+- Setting `show_bpjs_test_accounts` (default TRUE, migration `0013`) → tampil/sembunyikan panel "Akun BPJS untuk pengujian" di dashboard.
+- Akun panel admin dibuat dari modal Pengaturan Aplikasi (`AdminUsersPanel`, `createAdminAction`, khusus role `admin`; password bcrypt).
+- Video kiri: setting `display_youtube_playlist` (Pengaturan Aplikasi admin) berisi ID playlist, atau ID video 11 karakter yang diputar berulang.

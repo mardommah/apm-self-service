@@ -12,6 +12,8 @@ interface VisitRow {
   servedAt?: Date | string | null;
   service: { code: string; label: string };
   servedByAdmin?: { username: string } | null;
+  called?: boolean;
+  callFinished?: boolean;
 }
 
 interface Props {
@@ -20,6 +22,7 @@ interface Props {
   onRevoke: (id: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onCall: (visit: VisitRow) => Promise<void>;
+  onFinish: (id: string) => Promise<void>;
   loading?: string | null; // visit id being processed
 }
 
@@ -29,7 +32,7 @@ const statusVariant: Record<string, "warning" | "success" | "destructive" | "sec
   revoked: "destructive",
 };
 
-export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, loading }: Props) {
+export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFinish, loading }: Props) {
   const [confirm, setConfirm] = useState<{ action: "revoke" | "delete"; id: string } | null>(null);
 
   if (visits.length === 0) {
@@ -158,6 +161,11 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, loadi
                         onClick={() => onServe(v.id)}
                       >
                         {loading === v.id ? "..." : "✓ Layani"}
+                      </Button>
+                    )}
+                    {v.status === "served" && v.called && !v.callFinished && (
+                      <Button size="sm" variant="outline" disabled={loading === v.id} onClick={() => onFinish(v.id)}>
+                        {loading === v.id ? "..." : "✓ Selesai"}
                       </Button>
                     )}
                     {v.status !== "revoked" && (

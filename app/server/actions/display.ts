@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { finishQueueCall } from "../functions/call-finish";
 import { createQueueCall, listCallsAfter, listLoketCalls } from "../functions/calls";
 import { getDisplayYoutubePlaylist } from "../functions/settings";
 import { requireAdminToken } from "./admin-auth";
@@ -10,7 +11,14 @@ export const callVisitAction = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     requireAdminToken(data.token);
-    await createQueueCall(data.visitId, data.loket);
+    return createQueueCall(data.visitId, data.loket);
+  });
+
+export const finishVisitAction = createServerFn({ method: "POST" })
+  .validator((data: { token: string; visitId: string }) => data)
+  .handler(async ({ data }) => {
+    requireAdminToken(data.token);
+    await finishQueueCall(data.visitId);
     return { ok: true };
   });
 

@@ -3,7 +3,11 @@
 import { and, asc, count, desc, eq, gt, gte } from "drizzle-orm";
 import { getDb } from "../db";
 import { queueCalls, services, visits } from "../schema";
-import { getDailyQueueNumber } from "./visits";
+import { callMliteLoket } from "../mlite-loket";
+import { getDailyQueueNumber, parseMliteNote } from "./visits";
+
+/** called = menunggu pasien datang, serving = admin menekan Layani, finished = admin menekan Selesai. */
+export type CallStatus = "called" | "serving" | "finished";
 
 export interface QueueCall {
   id: number;
@@ -12,6 +16,7 @@ export interface QueueCall {
   calledAt: Date;
   queueNumber: string;
   serviceLabel: string;
+  status: CallStatus;
 }
 
 function todayStart() {
@@ -20,20 +25,30 @@ function todayStart() {
   return d;
 }
 
+/** Records the call for the TV display; mLITE-linked tickets are also marked called in SIMRS (best effort). */
 export async function createQueueCall(visitId: string, loket: number) {
   const db = getDb();
-  const [visit] = await db.select({ id: visits.id }).from(visits).where(eq(visits.id, visitId)).limit(1);
+  const [visit] = await db
+    .select({ id: visits.id, notes: visits.notes })
+    .from(visits)
+    .where(eq(visits.id, visitId))
+    .limit(1);
   if (!visit) throw new Error("Visit not found");
   const [previous] = await db
     .select({ total: count() })
     .from(queueCalls)
     .where(eq(queueCalls.visitId, visitId));
-  await db.insert(queueCalls).values({
-    visitId,
-    loket,
-    isRecall: Number(previous?.total ?? 0) > 0,
-    calledAt: new Date(),
-  });
+  const isRecall = Number(previous?.total ?? 0) > 0;
+  await db.insert(queueCalls).values({ visitId, loket, isRecall, calledAt: new Date() });
+  const mlite = parseMliteNote(visit.notes);
+  if (!mlite) return { mliteOk: true };
+  try {
+    await callMliteLoket(mlite.noantrian, loket, isRecall);
+    return { mliteOk: true };
+  } catch (error) {
+    console.error("mLITE setpanggil failed", error);
+    return { mliteOk: false };
+  }
 }
 
 function selectCalls() {
@@ -46,6 +61,8 @@ function selectCalls() {
       visitId: visits.id,
       visitCreatedAt: visits.createdAt,
       notes: visits.notes,
+      visitStatus: visits.status,
+      finishedAt: queueCalls.finishedAt,
       serviceLabel: services.label,
     })
     .from(queueCalls)
@@ -55,8 +72,9 @@ function selectCalls() {
 
 async function withQueueNumber(rows: Awaited<ReturnType<typeof selectCalls>>): Promise<QueueCall[]> {
   return Promise.all(
-    rows.map(async ({ visitId, visitCreatedAt, notes, ...call }) => ({
+    rows.map(async ({ visitId, visitCreatedAt, notes, visitStatus, finishedAt, ...call }) => ({
       ...call,
+      status: (finishedAt ? "finished" : visitStatus === "served" ? "serving" : "called") as CallStatus,
       queueNumber: await getDailyQueueNumber({ id: visitId, createdAt: visitCreatedAt, notes }),
     })),
   );

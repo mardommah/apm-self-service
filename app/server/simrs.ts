@@ -24,7 +24,7 @@ type SimrsBookingRow = RowDataPacket & {
 
 let pool: mysql.Pool | null = null;
 
-function getSimrsPool() {
+export function getSimrsPool() {
   if (pool) return pool;
   const host = process.env.SIMRS_DB_HOST;
   const user = process.env.SIMRS_DB_USER;
@@ -85,11 +85,12 @@ export async function createGeneralLoketQueue(loket: 1 | 2) {
     const response = await fetch(url, { method: "POST", signal: AbortSignal.timeout(10_000) });
     if (!response.ok || response.redirected) throw new Error("LOKET_QUEUE_FAILED");
     const [saved] = await connection.query<RowDataPacket[]>(
-      "SELECT COUNT(*) AS total FROM mlite_antrian_loket WHERE type = ? AND noantrian = ? AND postdate = CURRENT_DATE()",
+      "SELECT MAX(kd) AS kd FROM mlite_antrian_loket WHERE type = ? AND noantrian = ? AND postdate = CURRENT_DATE()",
       [type, String(number)],
     );
-    if (Number(saved[0]?.total) < 1) throw new Error("LOKET_QUEUE_FAILED");
-    return { number: `${loket === 1 ? "A" : "B"}${number}`, loket };
+    const kd = Number(saved[0]?.kd);
+    if (!Number.isSafeInteger(kd) || kd < 1) throw new Error("LOKET_QUEUE_FAILED");
+    return { number: `${loket === 1 ? "A" : "B"}${number}`, loket, kd };
   } finally {
     try {
       if (locked) await connection.query("SELECT RELEASE_LOCK('apm_general_loket_queue')");

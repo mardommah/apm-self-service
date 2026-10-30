@@ -1,5 +1,11 @@
 import { Ticket } from "lucide-react";
-import type { QueueCall } from "~/server/functions/calls";
+import type { CallStatus, QueueCall } from "~/server/functions/calls";
+
+const HEADER: Record<CallStatus, string> = {
+  called: "SEDANG DIPANGGIL",
+  serving: "SEDANG DILAYANI",
+  finished: "SELESAI DILAYANI",
+};
 
 function CurrentCall({ call }: { call: QueueCall }) {
   return (
@@ -53,7 +59,7 @@ export function DisplayCallPanel({ call, offline }: { call: QueueCall | null; of
       <div className="relative flex items-center justify-between">
         <span className="flex items-center gap-2.5 font-caption text-[15px] tracking-[1.8px]">
           <span className={`size-2.5 rounded-full ${offline ? "bg-bp-faint" : "bg-[#4ADE80]"}`} />
-          {call ? "SEDANG DIPANGGIL" : "MENUNGGU PANGGILAN"}
+          {call ? HEADER[call.status] : "MENUNGGU PANGGILAN"}
         </span>
         {call && (
           <span className="border border-bp-sky px-3 py-1.5 font-caption text-[13px] uppercase text-bp-sky">

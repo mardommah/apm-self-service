@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
+import { LoketCaller } from "~/components/admin/LoketCaller";
 import { StatsCards } from "~/components/admin/StatsCards";
 import { VisitsTable } from "~/components/admin/VisitsTable";
 import { Button } from "~/components/ui/button";
@@ -10,10 +12,11 @@ import {
   updateAutoPrintSettingAction,
   updateBookingScannerSettingAction,
   updateFristaBypassSettingAction,
+  updateBpjsTestAccountsSettingAction,
   updateDisplayPlaylistAction,
   updateKioskReturnSecondsAction,
 } from "~/server/actions/dashboard-settings";
-import { callVisitAction } from "~/server/actions/display";
+import { callVisitAction, finishVisitAction } from "~/server/actions/display";
 import { deleteAction, revokeAction, serveAction } from "~/server/actions/dashboard-visits";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -89,6 +92,7 @@ function DashboardPage() {
   const [savingBarcode, setSavingBarcode] = useState(false);
   const [savingBookingScanner, setSavingBookingScanner] = useState(false);
   const [savingAutoPrint, setSavingAutoPrint] = useState(false);
+  const [savingBpjsTestAccounts, setSavingBpjsTestAccounts] = useState(false);
   const [savingFristaBypass, setSavingFristaBypass] = useState(false);
   const [kioskReturnSeconds, setKioskReturnSeconds] = useState<string | null>(null);
   const [savingKioskReturn, setSavingKioskReturn] = useState(false);
@@ -211,6 +215,17 @@ function DashboardPage() {
     }
   }
 
+  async function handleBpjsTestAccountsSetting(enabled: boolean) {
+    if (!token) return;
+    setSavingBpjsTestAccounts(true);
+    try {
+      await updateBpjsTestAccountsSettingAction({ data: { token, enabled } });
+      await fetchData(token, appliedFilters, page);
+    } finally {
+      setSavingBpjsTestAccounts(false);
+    }
+  }
+
   async function handleKioskReturnSeconds(event: React.FormEvent) {
     event.preventDefault();
     if (!token || kioskReturnSeconds === null) return;
@@ -275,6 +290,19 @@ function DashboardPage() {
       await callVisitAction({ data: { token, visitId: visit.id, loket } });
     } catch {
       alert("Gagal memanggil antrian. Coba lagi.");
+    } finally {
+      setLoadingVisit(null);
+    }
+  }
+
+  async function handleFinish(visitId: string) {
+    if (!token) return;
+    setLoadingVisit(visitId);
+    try {
+      await finishVisitAction({ data: { token, visitId } });
+      fetchData(token, appliedFilters, page);
+    } catch {
+      alert("Gagal menandai selesai. Coba lagi.");
     } finally {
       setLoadingVisit(null);
     }
@@ -375,6 +403,21 @@ function DashboardPage() {
               />
             </div>
 
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div>
+                <p className="font-medium text-gray-800">Tampilkan akun BPJS pengujian</p>
+                <p className="text-sm text-gray-500">
+                  Panel nomor & QR dummy untuk menguji scanner di bagian atas dashboard.
+                </p>
+              </div>
+              <SettingSwitch
+                checked={data.showBpjsTestAccounts}
+                disabled={savingBpjsTestAccounts}
+                label="Tampilkan akun BPJS pengujian"
+                onChange={handleBpjsTestAccountsSetting}
+              />
+            </div>
+
             <form
               onSubmit={handleKioskReturnSeconds}
               className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4"
@@ -408,9 +451,9 @@ function DashboardPage() {
               className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4"
             >
               <div>
-                <p className="font-medium text-gray-800">Playlist YouTube display</p>
+                <p className="font-medium text-gray-800">Video YouTube display</p>
                 <p className="text-sm text-gray-500">
-                  ID atau URL playlist untuk video di layar TV <code>/display</code>. Kosongkan untuk menyembunyikan video.
+                  URL / ID playlist atau satu video untuk layar TV <code>/display</code>. Kosongkan untuk menyembunyikan video.
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
@@ -511,6 +554,7 @@ function DashboardPage() {
                 </div>
               ))}
             </div>
+            <AdminUsersPanel token={token} />
           </section>
         </div>
       )}
@@ -557,25 +601,27 @@ function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <h2 className="font-semibold text-amber-900">Akun BPJS untuk pengujian</h2>
-          <p className="mt-1 text-sm text-amber-800">
-            Nomor dan QR berikut data dummy untuk menguji scanner. Keduanya tidak terdaftar sebagai peserta BPJS; validasi FKTL dan biometrik Frista dapat gagal.
-          </p>
-          <ul className="mt-3 flex flex-wrap gap-3">
-            {[
-              { number: "0000000000001", qr: "/dev/bpjs-checkin-dummy-qr.png" },
-              { number: "0000000000002", qr: "/dev/bpjs-checkin-dummy-qr-2.png" },
-            ].map(({ number, qr }) => (
-              <li key={number} className="flex items-center gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2">
-                <code className="font-semibold text-gray-900">{number}</code>
-                <a href={qr} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">
-                  Lihat QR
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {data.showBpjsTestAccounts && (
+          <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <h2 className="font-semibold text-amber-900">Akun BPJS untuk pengujian</h2>
+            <p className="mt-1 text-sm text-amber-800">
+              Nomor dan QR berikut data dummy untuk menguji scanner. Keduanya tidak terdaftar sebagai peserta BPJS; validasi FKTL dan biometrik Frista dapat gagal.
+            </p>
+            <ul className="mt-3 flex flex-wrap gap-3">
+              {[
+                { number: "0000000000001", qr: "/dev/bpjs-checkin-dummy-qr.png" },
+                { number: "0000000000002", qr: "/dev/bpjs-checkin-dummy-qr-2.png" },
+              ].map(({ number, qr }) => (
+                <li key={number} className="flex items-center gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                  <code className="font-semibold text-gray-900">{number}</code>
+                  <a href={qr} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">
+                    Lihat QR
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Stats */}
         <section>
@@ -686,6 +732,8 @@ function DashboardPage() {
           </Button>
         </form>
 
+        {token && <LoketCaller token={token} loket={loket} onChange={() => fetchData(token)} />}
+
         {/* Table */}
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -716,6 +764,7 @@ function DashboardPage() {
             onRevoke={handleRevoke}
             onDelete={handleDelete}
             onCall={handleCall}
+            onFinish={handleFinish}
             loading={loadingVisit}
           />
           <nav className="mt-4 flex items-center justify-between" aria-label="Pagination kunjungan">

@@ -15,7 +15,7 @@ export function loadResponsiveVoice() {
 export function callText(queueNumber: string, serviceLabel: string, loket: number) {
   // "007" -> "7", "O012" -> "O 12" so the voice reads a number, not digits with leading zeros.
   const spoken = queueNumber.replace(/^(\D*)0*(\d)/, (_, prefix, digit) => `${prefix} ${digit}`).trim();
-  return `Nomor: ${spoken}. Layanan: ${serviceLabel}. Silahkan menuju ke loket ${loket}.`;
+  return `Antrian Nomor: ${spoken}. Layanan: ${serviceLabel}. Silahkan menuju ke loket ${loket}.`;
 }
 
 /** Resolves when speech ends (or after MAX_SPEAK_MS if the engine never reports the end). */
@@ -45,10 +45,25 @@ export function speak(text: string): Promise<void> {
 
 let audioContext: AudioContext | null = null;
 
+/** Chrome blocks audio and speech until the page gets a click, unless started with --autoplay-policy=no-user-gesture-required. */
+export function isAudioUnlocked() {
+  audioContext ??= new AudioContext();
+  return audioContext.state === "running" || Boolean(navigator.userActivation?.hasBeenActive);
+}
+
+/** Call from a click handler: resumes Web Audio and warms up both speech engines. */
+export async function unlockAudio() {
+  audioContext ??= new AudioContext();
+  await audioContext.resume();
+  (window as any).responsiveVoice?.clickEvent?.();
+  if ("speechSynthesis" in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+}
+
 /** Two-tone bell (~1.2s) synthesized with Web Audio, so no sound asset is needed. */
 export function chime(): Promise<void> {
   audioContext ??= new AudioContext();
   const ctx = audioContext;
+  void ctx.resume();
   void ctx.resume();
   [659.25, 523.25].forEach((freq, i) => {
     const start = ctx.currentTime + i * 0.45;

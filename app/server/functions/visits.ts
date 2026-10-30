@@ -4,6 +4,7 @@ import { eq, and, desc, gte, lte, count, sql, ne, like, notLike, or, isNull } fr
 import { getDb } from "../db";
 import { visits, services, admins } from "../schema";
 import { ulid } from "~/lib/ulid";
+import { createGeneralLoketQueue } from "../simrs";
 import type { VisitStatus } from "../schema";
 
 // ─── Check device lock ────────────────────────────────────────────────────────
@@ -39,6 +40,25 @@ export async function assertVisitOwnedByDevice(id: string, deviceId: string) {
 
 // Offline kiosk tickets keep their printed number in notes, e.g. "offline:O001".
 const OFFLINE_NOTE_PREFIX = "offline:";
+// BPJS & Umum tickets are also rows in SIMRS mlite_antrian_loket (type "Loket"): "mlite:<kd>:<number>", e.g. "mlite:9600:A7".
+const MLITE_NOTE_PREFIX = "mlite:";
+export const LOKET_SERVICE_CODES = ["registrasi", "poli_umum"];
+
+export function parseMliteNote(notes: string | null | undefined) {
+  const match = notes?.match(/^mlite:(\d+):([A-Z])(\d+)$/);
+  return match ? { kd: Number(match[1]), queueNumber: match[2] + match[3], noantrian: match[3] } : null;
+}
+
+async function createMliteNote() {
+  try {
+    const queue = await createGeneralLoketQueue(1);
+    return `${MLITE_NOTE_PREFIX}${queue.kd}:${queue.number}`;
+  } catch (error) {
+    // SIMRS down must not block the kiosk: the ticket falls back to the app's own daily number.
+    console.error("mLITE loket queue failed", error);
+    return null;
+  }
+}
 
 // ─── Create visit ─────────────────────────────────────────────────────────────
 export async function createVisit(
@@ -74,6 +94,8 @@ export async function createVisit(
   }
 
   const id = offline?.id ?? ulid();
+  // shortcut: offline tickets synced later keep their O-number and get no mLITE row; staff record them in mLITE manually.
+  const mliteNote = !offline && LOKET_SERVICE_CODES.includes(service.code) ? await createMliteNote() : null;
   await db
     .insert(visits)
     .values({
@@ -84,7 +106,7 @@ export async function createVisit(
       deviceId: null,
       status: "waiting",
       createdAt: offline?.createdAt ?? new Date(),
-      notes: offline ? OFFLINE_NOTE_PREFIX + offline.queueNumber : null,
+      notes: offline ? OFFLINE_NOTE_PREFIX + offline.queueNumber : mliteNote,
     })
     // Re-syncing the same offline visit is a no-op.
     .onDuplicateKeyUpdate({ set: { id } });
@@ -282,6 +304,8 @@ export async function countVisits(filters?: VisitFilters) {
 /** 1-based order of a visit among all visits created on the same day (ULID ids sort by time). */
 export async function getDailyQueueNumber(visit: { id: string; createdAt: Date; notes?: string | null }) {
   if (visit.notes?.startsWith(OFFLINE_NOTE_PREFIX)) return visit.notes.slice(OFFLINE_NOTE_PREFIX.length);
+  const mlite = parseMliteNote(visit.notes);
+  if (mlite) return mlite.queueNumber;
   const db = getDb();
   const dayStart = new Date(visit.createdAt);
   dayStart.setHours(0, 0, 0, 0);
@@ -292,8 +316,11 @@ export async function getDailyQueueNumber(visit: { id: string; createdAt: Date; 
       and(
         gte(visits.createdAt, dayStart),
         lte(visits.id, visit.id),
-        // Offline tickets have their own O-numbers; counting them would shift printed online numbers.
-        or(isNull(visits.notes), notLike(visits.notes, `${OFFLINE_NOTE_PREFIX}%`)),
+        // Offline and mLITE tickets have their own numbers; counting them would shift the app's printed numbers.
+        or(
+          isNull(visits.notes),
+          and(notLike(visits.notes, `${OFFLINE_NOTE_PREFIX}%`), notLike(visits.notes, `${MLITE_NOTE_PREFIX}%`)),
+        ),
       ),
     );
   return String(row?.total ?? 0).padStart(3, "0");

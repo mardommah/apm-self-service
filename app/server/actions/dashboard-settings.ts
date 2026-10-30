@@ -6,6 +6,7 @@ import {
   setFristaBypassEnabled,
   setDisplayYoutubePlaylist,
   setKioskReturnSeconds,
+  setShowBpjsTestAccounts,
 } from "../functions/settings";
 import { requireAdminToken } from "./admin-auth";
 
@@ -56,14 +57,25 @@ export const updateFristaBypassSettingAction = createServerFn({ method: "POST" }
 
 export const updateDisplayPlaylistAction = createServerFn({ method: "POST" })
   .validator((data: { token: string; playlist: string }) => {
-    // Accept a full YouTube URL or a bare playlist ID; store only the ID.
+    // Accept a YouTube playlist/video URL or a bare ID; store only the ID (11 chars = single video).
     const raw = data.playlist.trim();
-    const playlist = raw.match(/[?&]list=([^&#]+)/)?.[1] ?? raw;
+    const playlist =
+      raw.match(/[?&]list=([^&#]+)/)?.[1] ??
+      raw.match(/(?:[?&]v=|youtu\.be\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/)?.[1] ??
+      raw;
     if (!/^[A-Za-z0-9_-]{0,64}$/.test(playlist)) throw new Error("DISPLAY_PLAYLIST_INVALID");
     return { token: data.token, playlist };
   })
   .handler(async ({ data }) => {
     requireAdminToken(data.token, true);
     await setDisplayYoutubePlaylist(data.playlist);
+    return { ok: true };
+  });
+
+export const updateBpjsTestAccountsSettingAction = createServerFn({ method: "POST" })
+  .validator((data: { token: string; enabled: boolean }) => data)
+  .handler(async ({ data }) => {
+    requireAdminToken(data.token, true);
+    await setShowBpjsTestAccounts(data.enabled);
     return { ok: true };
   });

@@ -40,6 +40,7 @@ export const appSettings = mysqlTable("app_settings", {
   autoPrintEnabled: boolean("auto_print_enabled").default(true).notNull(),
   kioskReturnSeconds: int("kiosk_return_seconds").default(30).notNull(),
   displayYoutubePlaylist: varchar("display_youtube_playlist", { length: 255 }).default("").notNull(),
+  showBpjsTestAccounts: boolean("show_bpjs_test_accounts").default(true).notNull(),
   updatedAt: datetime("updated_at").default(new Date()).notNull(),
 });
 
@@ -77,6 +78,7 @@ export const queueCalls = mysqlTable(
     loket: int("loket").notNull(),
     isRecall: boolean("is_recall").default(false).notNull(),
     calledAt: datetime("called_at").notNull(),
+    finishedAt: datetime("finished_at"),
   },
   (table) => ({
     calledAtIdx: index("idx_queue_calls_called_at").on(table.calledAt),

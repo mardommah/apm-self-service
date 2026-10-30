@@ -4,10 +4,15 @@ import { useVideoInfo } from "./useVideoInfo";
 
 const READY_TIMEOUT_MS = 15_000;
 const RETRY_MS = 60_000;
-const PLAYER_VARS = {
-  listType: "playlist", autoplay: 1, mute: 1, controls: 0, loop: 1,
-  rel: 0, playsinline: 1, disablekb: 1, iv_load_policy: 3,
-};
+const PLAYER_VARS = { autoplay: 1, mute: 1, controls: 0, loop: 1, rel: 0, playsinline: 1, disablekb: 1, iv_load_policy: 3 };
+const VIDEO_ID_LENGTH = 11;
+
+/** Playlist IDs play as a list; an 11-char video ID loops alone (YouTube needs `playlist` = the same ID to loop). */
+function sourceOptions(source: string) {
+  return source.length === VIDEO_ID_LENGTH
+    ? { videoId: source, playerVars: { ...PLAYER_VARS, playlist: source } }
+    : { playerVars: { ...PLAYER_VARS, listType: "playlist", list: source } };
+}
 
 export function useYouTubePlayer(playlist: string, volume: number) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -31,7 +36,7 @@ export function useYouTubePlayer(playlist: string, volume: number) {
       playerRef.current = new YT.Player(el, {
         width: "100%",
         height: "100%",
-        playerVars: { ...PLAYER_VARS, list: playlist },
+        ...sourceOptions(playlist),
         events: {
           onReady: (event: any) => {
             event.target.unMute();

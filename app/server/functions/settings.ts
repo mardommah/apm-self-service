@@ -113,3 +113,21 @@ export async function setDisplayYoutubePlaylist(displayYoutubePlaylist: string) 
       set: { displayYoutubePlaylist, updatedAt: new Date() },
     });
 }
+
+export async function getShowBpjsTestAccounts() {
+  const [settings] = await getDb()
+    .select({ showBpjsTestAccounts: appSettings.showBpjsTestAccounts })
+    .from(appSettings)
+    .where(eq(appSettings.id, SETTINGS_ID))
+    .limit(1);
+  return settings?.showBpjsTestAccounts ?? true;
+}
+
+export async function setShowBpjsTestAccounts(showBpjsTestAccounts: boolean) {
+  await getDb()
+    .insert(appSettings)
+    .values({ id: SETTINGS_ID, showBpjsTestAccounts, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({
+      set: { showBpjsTestAccounts, updatedAt: new Date() },
+    });
+}
