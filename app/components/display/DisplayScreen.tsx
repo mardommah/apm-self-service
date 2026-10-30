@@ -10,12 +10,14 @@ import { DISPLAY_RUNNING_TEXT } from "./displayRunningText";
 import { DisplayTopBar } from "./DisplayTopBar";
 import { DisplayVideo } from "./DisplayVideo";
 import { useCallAnnouncer } from "./useCallAnnouncer";
+import { useDisplayScale } from "./useDisplayScale";
 
 export function DisplayScreen({ initial }: { initial: DisplayData }) {
   const [data, setData] = useState(initial);
   const [offline, setOffline] = useState(false);
   const cursor = useRef(initial.cursor);
   const { active, flashId, enqueue } = useCallAnnouncer();
+  const scale = useDisplayScale();
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -43,7 +45,8 @@ export function DisplayScreen({ initial }: { initial: DisplayData }) {
   }, [enqueue]);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bp-surface-2">
+    <div className="grid h-dvh w-screen place-items-center overflow-hidden bg-bp-ink">
+    <div style={{ zoom: scale }} className="flex h-[1080px] w-[1920px] shrink-0 flex-col overflow-hidden bg-bp-surface-2">
       <DisplayTopBar />
       <main className="flex min-h-0 flex-1">
         <DisplayVideo playlist={data.playlist} ducked={active !== null} />
@@ -55,6 +58,7 @@ export function DisplayScreen({ initial }: { initial: DisplayData }) {
       <KioskRunningText messages={DISPLAY_RUNNING_TEXT} size="display" />
       <DisplaySoundGate />
       {active && <DisplayCallOverlay key={active.call.id} active={active} />}
+    </div>
     </div>
   );
 }
