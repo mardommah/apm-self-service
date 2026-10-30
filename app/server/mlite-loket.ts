@@ -1,8 +1,9 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { getSimrsPool } from "./simrs";
 
-// Same endpoints the mLITE "Pemanggil Antrian Loket" page uses (anjungan/setpanggil, anjungan/simpannorm).
-const MLITE_TYPE = "loket";
+// Same endpoints the mLITE pemanggil pages use (anjungan/setpanggil, anjungan/simpannorm).
+// `type` is what those pages send: "loket" (type Loket, A) or "cs" (type CS, B).
+type MliteType = "loket" | "cs";
 
 function anjunganUrl(endpoint: string, params: Record<string, string>) {
   const url = new URL(process.env.MLITE_GENERAL_PATIENT_URL ?? "");
@@ -25,23 +26,24 @@ async function callAnjunganJson(endpoint: string, params: Record<string, string>
 }
 
 /**
- * Mirrors mLITE "Pemanggil Antrian Loket" (plugins/anjungan Admin.php show=panggil_loket):
+ * Mirrors mLITE pemanggil pages (plugins/anjungan Admin.php show=panggil_loket / panggil_cs):
  * a new call first closes the previous number (end_time) and moves the counter (mlite_settings panggil_loket_nomor)
  * to this number, then setpanggil sets status 1 + loket so mLITE's own display can announce it.
  * A recall is only the bullhorn button: setpanggil again.
  */
-export async function callMliteLoket(noantrian: string, loket: number, recall: boolean) {
+export async function callMliteLoket(noantrian: string, type: MliteType, loket: number, recall: boolean) {
   const counter = String(loket);
+  const show = `panggil_${type}`;
   if (!recall) {
-    await callAnjungan("loket", { show: "panggil_loket", loket: counter });
-    await callAnjungan("loket", { show: "panggil_loket", antrian: noantrian, reset: counter });
+    await callAnjungan("loket", { show, loket: counter });
+    await callAnjungan("loket", { show, antrian: noantrian, reset: counter });
   }
-  await callAnjunganJson("setpanggil", { noantrian, type: MLITE_TYPE, loket: counter });
+  await callAnjunganJson("setpanggil", { noantrian, type, loket: counter });
 }
 
 /** simpannorm only accepts a 6-character RM; verified by reading the row back by its kd. */
-export async function saveMliteRm(kd: number, noantrian: string, noRkmMedis: string) {
-  await callAnjunganJson("simpannorm", { noantrian, type: MLITE_TYPE, no_rkm_medis: noRkmMedis });
+export async function saveMliteRm(kd: number, noantrian: string, type: MliteType, noRkmMedis: string) {
+  await callAnjunganJson("simpannorm", { noantrian, type, no_rkm_medis: noRkmMedis });
   const [rows] = await getSimrsPool().query<RowDataPacket[]>(
     "SELECT no_rkm_medis FROM mlite_antrian_loket WHERE kd = ?",
     [kd],

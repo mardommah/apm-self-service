@@ -19,26 +19,39 @@ export function LoketCallerCard({ card, busy, onCall, onRecall, onSaveRm }: Prop
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold text-gray-800">{card.label}</h3>
-        <span className="text-sm text-gray-500">{card.waiting} menunggu</span>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            card.waiting > 0 ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {card.waiting} belum dipanggil
+        </span>
       </div>
-      <div className="my-3 text-center">
-        <div className="font-mono text-6xl font-bold text-gray-900">{current?.queueNumber ?? "—"}</div>
-        {current && (
-          <div className="mt-1 text-xs text-gray-500">
-            Loket {current.loket} · {current.status === "served" ? "selesai (RM tersimpan)" : "dipanggil"}
-          </div>
+      {/* Fixed height so cards line up whether or not a number has been called. */}
+      <div className="my-3 flex h-[88px] flex-col items-center justify-center text-center">
+        {current ? (
+          <>
+            <div className="font-mono text-5xl font-bold text-gray-900">{current.queueNumber}</div>
+            <div className="mt-1 text-xs text-gray-500">
+              Terakhir dipanggil · Loket {current.loket}
+              {current.status === "served" && " · RM tersimpan"}
+            </div>
+          </>
+        ) : (
+          <div className="text-sm text-gray-400">Belum ada yang dipanggil</div>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" disabled={busy || !current} onClick={() => current && onRecall(current.id)}>
-          📣 Panggil Ulang
+      <Button className="w-full" disabled={busy || card.waiting === 0} onClick={() => onCall()}
+        variant={card.waiting === 0 ? "outline" : "default"}>
+        {card.waiting === 0 ? "Tidak ada antrean" : `⏭ Panggil berikutnya (${card.waiting})`}
+      </Button>
+      {current && (
+        <Button variant="outline" className="mt-2 w-full" disabled={busy} onClick={() => onRecall(current.id)}>
+          📣 Panggil ulang {current.queueNumber}
         </Button>
-        <Button disabled={busy || card.waiting === 0} onClick={() => onCall()}>
-          ⏭ Berikutnya
-        </Button>
-      </div>
+      )}
       <form
         className="mt-3 flex gap-2"
         onSubmit={async (e) => {
@@ -47,7 +60,7 @@ export function LoketCallerCard({ card, busy, onCall, onRecall, onSaveRm }: Prop
           setJump("");
         }}
       >
-        <input required value={jump} onChange={(e) => setJump(e.target.value)} placeholder="Lompat ke nomor (A7)" aria-label={`Lompat nomor ${card.label}`} className={inputClass} />
+        <input required value={jump} onChange={(e) => setJump(e.target.value)} placeholder={`Panggil nomor lain, mis. ${card.prefix ? `${card.prefix}8` : "008"}`} aria-label={`Panggil nomor tertentu ${card.label}`} className={inputClass} />
         <Button type="submit" variant="outline" disabled={busy}>Panggil</Button>
       </form>
       {current?.linked && current.status === "waiting" && (

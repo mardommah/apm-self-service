@@ -57,13 +57,23 @@ export const updateFristaBypassSettingAction = createServerFn({ method: "POST" }
 
 export const updateDisplayPlaylistAction = createServerFn({ method: "POST" })
   .validator((data: { token: string; playlist: string }) => {
-    // Accept a YouTube playlist/video URL or a bare ID; store only the ID (11 chars = single video).
-    const raw = data.playlist.trim();
-    const playlist =
-      raw.match(/[?&]list=([^&#]+)/)?.[1] ??
-      raw.match(/(?:[?&]v=|youtu\.be\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/)?.[1] ??
-      raw;
-    if (!/^[A-Za-z0-9_-]{0,64}$/.test(playlist)) throw new Error("DISPLAY_PLAYLIST_INVALID");
+    // One playlist URL/ID, or several video URLs/IDs separated by commas or new lines.
+    // Stored as IDs only: a playlist ID, or comma-joined 11-char video IDs.
+    const ids = data.playlist
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(
+        (raw) =>
+          raw.match(/[?&]list=([^&#]+)/)?.[1] ??
+          raw.match(/(?:[?&]v=|youtu\.be\/|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/)?.[1] ??
+          raw,
+      );
+    const valid =
+      ids.length <= 1
+        ? ids.every((id) => /^[A-Za-z0-9_-]{1,64}$/.test(id))
+        : ids.every((id) => /^[A-Za-z0-9_-]{11}$/.test(id));
+    const playlist = ids.join(",");
+    if (!valid || playlist.length > 255) throw new Error("DISPLAY_PLAYLIST_INVALID");
     return { token: data.token, playlist };
   })
   .handler(async ({ data }) => {

@@ -40,18 +40,29 @@ export async function assertVisitOwnedByDevice(id: string, deviceId: string) {
 
 // Offline kiosk tickets keep their printed number in notes, e.g. "offline:O001".
 const OFFLINE_NOTE_PREFIX = "offline:";
-// BPJS & Umum tickets are also rows in SIMRS mlite_antrian_loket (type "Loket"): "mlite:<kd>:<number>", e.g. "mlite:9600:A7".
+// Tickets that are also rows in SIMRS mlite_antrian_loket: "mlite:<kd>:<number>", e.g. "mlite:9600:A7".
 const MLITE_NOTE_PREFIX = "mlite:";
-export const LOKET_SERVICE_CODES = ["registrasi", "poli_umum"];
-
-export function parseMliteNote(notes: string | null | undefined) {
-  const match = notes?.match(/^mlite:(\d+):([A-Z])(\d+)$/);
-  return match ? { kd: Number(match[1]), queueNumber: match[2] + match[3], noantrian: match[3] } : null;
+// Same split as the mLITE anjungan buttons: ANTRIAN LOKET (type Loket, A) for registration, ANTRIAN CS (type CS, B).
+const MLITE_QUEUE_BY_SERVICE: Record<string, 1 | 2> = { registrasi: 1, poli_umum: 1, customer_service: 2 };
+// Lab & vaccination are called at the registration loket too, but are not recorded in mLITE (keep app numbers).
+/** Letter mLITE shows for this service's tickets ("A" Loket, "B" CS), or null when not in mLITE. */
+export function mlitePrefix(serviceCode: string) {
+  const queueType = MLITE_QUEUE_BY_SERVICE[serviceCode];
+  return queueType ? (queueType === 1 ? "A" : "B") : null;
 }
 
-async function createMliteNote() {
+export const LOKET_SERVICE_CODES = [...Object.keys(MLITE_QUEUE_BY_SERVICE), "laboratorium", "vaksinasi"];
+
+export function parseMliteNote(notes: string | null | undefined) {
+  const match = notes?.match(/^mlite:(\d+):([AB])(\d+)$/);
+  if (!match) return null;
+  const type: "loket" | "cs" = match[2] === "B" ? "cs" : "loket";
+  return { kd: Number(match[1]), queueNumber: match[2] + match[3], noantrian: match[3], type };
+}
+
+async function createMliteNote(queueType: 1 | 2) {
   try {
-    const queue = await createGeneralLoketQueue(1);
+    const queue = await createGeneralLoketQueue(queueType);
     return `${MLITE_NOTE_PREFIX}${queue.kd}:${queue.number}`;
   } catch (error) {
     // SIMRS down must not block the kiosk: the ticket falls back to the app's own daily number.
@@ -95,7 +106,8 @@ export async function createVisit(
 
   const id = offline?.id ?? ulid();
   // shortcut: offline tickets synced later keep their O-number and get no mLITE row; staff record them in mLITE manually.
-  const mliteNote = !offline && LOKET_SERVICE_CODES.includes(service.code) ? await createMliteNote() : null;
+  const queueType = MLITE_QUEUE_BY_SERVICE[service.code];
+  const mliteNote = !offline && queueType ? await createMliteNote(queueType) : null;
   await db
     .insert(visits)
     .values({

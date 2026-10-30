@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gte, notExists } from "drizzle-orm";
 import { getDb } from "../db";
 import { saveMliteRm } from "../mlite-loket";
 import { queueCalls, services, visits } from "../schema";
-import { getDailyQueueNumber, LOKET_SERVICE_CODES, markServed, parseMliteNote } from "./visits";
+import { getDailyQueueNumber, LOKET_SERVICE_CODES, markServed, mlitePrefix, parseMliteNote } from "./visits";
 
 function todayStart() {
   const d = new Date();
@@ -51,7 +51,7 @@ export async function getLoketCallerState() {
       const current = last
         ? { id: last.id, status: last.status, loket: last.loket, queueNumber: await getDailyQueueNumber(last), linked: Boolean(parseMliteNote(last.notes)) }
         : null;
-      return { serviceCode: code, label: service?.label ?? code, waiting, current };
+      return { serviceCode: code, label: service?.label ?? code, prefix: mlitePrefix(code), waiting, current };
     }),
   );
 }
@@ -81,6 +81,6 @@ export async function saveVisitRm(visitId: string, noRkmMedis: string, adminId: 
   const [visit] = await getDb().select(visitFields).from(visits).where(eq(visits.id, visitId)).limit(1);
   const mlite = parseMliteNote(visit?.notes);
   if (!mlite) throw new Error("VISIT_NOT_IN_MLITE");
-  await saveMliteRm(mlite.kd, mlite.noantrian, noRkmMedis);
+  await saveMliteRm(mlite.kd, mlite.noantrian, mlite.type, noRkmMedis);
   await markServed(visitId, adminId);
 }

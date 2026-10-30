@@ -1,18 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { applySound, sourceOptions, YT_CUED, YT_ENDED, YT_PAUSED } from "./youtubeSource";
 import { loadYouTubeApi } from "./youtubeApi";
 import { useVideoInfo } from "./useVideoInfo";
 
 const READY_TIMEOUT_MS = 15_000;
 const RETRY_MS = 60_000;
-const PLAYER_VARS = { autoplay: 1, mute: 1, controls: 0, loop: 1, rel: 0, playsinline: 1, disablekb: 1, iv_load_policy: 3 };
-const VIDEO_ID_LENGTH = 11;
-
-/** Playlist IDs play as a list; an 11-char video ID loops alone (YouTube needs `playlist` = the same ID to loop). */
-function sourceOptions(source: string) {
-  return source.length === VIDEO_ID_LENGTH
-    ? { videoId: source, playerVars: { ...PLAYER_VARS, playlist: source } }
-    : { playerVars: { ...PLAYER_VARS, listType: "playlist", list: source } };
-}
 
 export function useYouTubePlayer(playlist: string, volume: number) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -33,17 +25,29 @@ export function useYouTubePlayer(playlist: string, volume: number) {
     const el = host.appendChild(document.createElement("div"));
     loadYouTubeApi().then((YT) => {
       if (cancelled) return;
+      const options = sourceOptions(playlist);
       playerRef.current = new YT.Player(el, {
         width: "100%",
         height: "100%",
-        ...sourceOptions(playlist),
+        videoId: options.videoId,
+        playerVars: { ...options.playerVars, origin: window.location.origin },
         events: {
           onReady: (event: any) => {
-            event.target.unMute();
-            event.target.setVolume(volumeRef.current);
+            event.target.mute();
             event.target.playVideo();
+            applySound(event.target, volumeRef.current);
             isReady = true;
             setReady(true);
+          },
+          // Nobody pauses a TV: any stop (blocked unmute, cued, loop not restarting) resumes muted.
+          onStateChange: (event: any) => {
+            if (event.data === YT_PAUSED || event.data === YT_CUED) {
+              event.target.mute();
+              event.target.playVideo();
+            } else if (event.data === YT_ENDED && options.single) {
+              event.target.seekTo(0);
+              event.target.playVideo();
+            }
           },
           onError: fail,
         },
@@ -64,6 +68,13 @@ export function useYouTubePlayer(playlist: string, volume: number) {
     const id = setTimeout(() => setAttempt((a) => a + 1), RETRY_MS);
     return () => clearTimeout(id);
   }, [failed, playlist]);
+
+  // First click anywhere (e.g. the sound gate) lets the video play with sound.
+  useEffect(() => {
+    const unmute = () => playerRef.current?.unMute && applySound(playerRef.current, volumeRef.current);
+    window.addEventListener("pointerdown", unmute);
+    return () => window.removeEventListener("pointerdown", unmute);
+  }, []);
 
   // Ramp volume over ~400ms when ducking for a call and back.
   useEffect(() => {

@@ -43,7 +43,7 @@ export async function createQueueCall(visitId: string, loket: number) {
   const mlite = parseMliteNote(visit.notes);
   if (!mlite) return { mliteOk: true };
   try {
-    await callMliteLoket(mlite.noantrian, loket, isRecall);
+    await callMliteLoket(mlite.noantrian, mlite.type, loket, isRecall);
     return { mliteOk: true };
   } catch (error) {
     console.error("mLITE setpanggil failed", error);

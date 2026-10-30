@@ -11,7 +11,7 @@ const ERRORS: Record<string, string> = {
   MLITE_RM_NOT_SAVED: "mLITE tidak menyimpan No RM. Coba lagi.",
 };
 
-/** Pemanggil Pasien BPJS & Umum, mirip halaman "Pemanggil Antrian Loket" mLITE. */
+/** Pemanggil Pasien BPJS & Umum (mLITE Loket, A) dan Customer Service (mLITE CS, B), mirip halaman pemanggil mLITE. */
 export function LoketCaller({ token, loket, onChange }: { token: string; loket: number; onChange: () => void }) {
   const [cards, setCards] = useState<LoketCallerState>([]);
   const [busy, setBusy] = useState(false);
@@ -46,7 +46,7 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
     <section>
       <h2 className="mb-3 text-lg font-semibold text-gray-800">Pemanggil Loket {loket}</h2>
       {message && <p role="status" className="mb-3 text-sm text-red-600">{message}</p>}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         {cards.map((card) => (
           <LoketCallerCard
             key={card.serviceCode}

@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
 import { LoketCaller } from "~/components/admin/LoketCaller";
-import { StatsCards } from "~/components/admin/StatsCards";
-import { VisitsTable } from "~/components/admin/VisitsTable";
+import { BpjsTestAccounts } from "~/components/admin/BpjsTestAccounts";
+import { AdminNavLinks } from "~/components/admin/AdminNavLinks";
 import { Button } from "~/components/ui/button";
 import { getDashboardDataAction } from "~/server/actions/dashboard-data";
 import { createPoliAction, updatePoliAction } from "~/server/actions/dashboard-poli";
@@ -16,8 +16,7 @@ import {
   updateDisplayPlaylistAction,
   updateKioskReturnSecondsAction,
 } from "~/server/actions/dashboard-settings";
-import { callVisitAction, finishVisitAction } from "~/server/actions/display";
-import { deleteAction, revokeAction, serveAction } from "~/server/actions/dashboard-visits";
+import { getSavedLoket, LOKET_COUNT, saveLoket } from "~/lib/admin-loket";
 
 export const Route = createFileRoute("/admin/dashboard")({
   component: DashboardPage,
@@ -59,31 +58,11 @@ function SettingSwitch({
   );
 }
 
-const LOKET_COUNT = 9;
-const LOKET_STORAGE_KEY = "admin-loket";
-
-type Filters = { status: string; serviceCode: string; dateFrom: string; dateTo: string; search: string };
-
-function todayString() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function defaultFilters(): Filters {
-  const today = todayString();
-  return { status: "", serviceCode: "", dateFrom: today, dateTo: today, search: "" };
-}
-
 function DashboardPage() {
   const navigate = useNavigate();
   const [token, setToken] = useState<string>("");
   const [data, setData] = useState<Awaited<ReturnType<typeof getDashboardDataAction>> | null>(null);
-  const [loadingVisit, setLoadingVisit] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>(defaultFilters);
-  // Filters the current table data was fetched with; edits in the form apply only on submit.
-  const [appliedFilters, setAppliedFilters] = useState<Filters>(defaultFilters);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [page, setPage] = useState(1);
   const [poliCode, setPoliCode] = useState("poli_");
   const [poliLabel, setPoliLabel] = useState("");
   const [poliError, setPoliError] = useState("");
@@ -109,41 +88,31 @@ function DashboardPage() {
       }
       const t = getToken()!;
       setToken(t);
-      fetchData(t, defaultFilters(), 1);
+      fetchData(t);
     }
     init();
   }, []);
 
   useEffect(() => {
-    try {
-      const saved = Number(localStorage.getItem(LOKET_STORAGE_KEY));
-      if (saved >= 1 && saved <= LOKET_COUNT) setLoket(saved);
-    } catch {}
+    setLoket(getSavedLoket());
   }, []);
 
   useEffect(() => {
     if (!token || !autoRefresh) return;
     const interval = setInterval(
-      () => fetchData(token, appliedFilters, page),
+      () => fetchData(token),
       30_000,
     );
     return () => clearInterval(interval);
-  }, [token, autoRefresh, appliedFilters, page]);
+  }, [token, autoRefresh]);
 
-  async function fetchData(t: string, f: Filters = appliedFilters, targetPage = page) {
+  // Settings, services and admin info; the visits list lives on /admin/kunjungan.
+  async function fetchData(t: string) {
     try {
-      const result = await getDashboardDataAction({ data: { token: t, ...f, page: targetPage } });
-      setAppliedFilters(f);
-      setData(result);
-      setPage(result.page);
+      setData(await getDashboardDataAction({ data: { token: t } }));
     } catch {
       navigate({ to: "/admin/login" });
     }
-  }
-
-  async function handleApplyFilter(event?: React.FormEvent) {
-    event?.preventDefault();
-    if (token) fetchData(token, filters, 1);
   }
 
   async function handleCreatePoli(event: React.FormEvent) {
@@ -155,7 +124,7 @@ function DashboardPage() {
       await createPoliAction({ data: { token, code: poliCode, label: poliLabel } });
       setPoliCode("poli_");
       setPoliLabel("");
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       setPoliError(
@@ -174,7 +143,7 @@ function DashboardPage() {
     setPoliError("");
     try {
       await updatePoliAction({ data: { token, id, label, isActive } });
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
     } catch {
       setPoliError("Poli gagal diperbarui.");
     } finally {
@@ -187,7 +156,7 @@ function DashboardPage() {
     setSavingBarcode(true);
     try {
       await updateBarcodeSettingAction({ data: { token, enabled } });
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
     } finally {
       setSavingBarcode(false);
     }
@@ -198,7 +167,7 @@ function DashboardPage() {
     setSavingFristaBypass(true);
     try {
       await updateFristaBypassSettingAction({ data: { token, enabled } });
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
     } finally {
       setSavingFristaBypass(false);
     }
@@ -209,7 +178,7 @@ function DashboardPage() {
     setSavingAutoPrint(true);
     try {
       await updateAutoPrintSettingAction({ data: { token, enabled } });
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
     } finally {
       setSavingAutoPrint(false);
     }
@@ -220,7 +189,7 @@ function DashboardPage() {
     setSavingBpjsTestAccounts(true);
     try {
       await updateBpjsTestAccountsSettingAction({ data: { token, enabled } });
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
     } finally {
       setSavingBpjsTestAccounts(false);
     }
@@ -232,7 +201,7 @@ function DashboardPage() {
     setSavingKioskReturn(true);
     try {
       await updateKioskReturnSecondsAction({ data: { token, seconds: Number(kioskReturnSeconds) } });
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
       setKioskReturnSeconds(null);
     } finally {
       setSavingKioskReturn(false);
@@ -244,75 +213,15 @@ function DashboardPage() {
     setSavingBookingScanner(true);
     try {
       await updateBookingScannerSettingAction({ data: { token, enabled } });
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
     } finally {
       setSavingBookingScanner(false);
     }
   }
 
-  async function handleServe(visitId: string) {
-    if (!token) return;
-    setLoadingVisit(visitId);
-    try {
-      await serveAction({ data: { token, visitId } });
-      fetchData(token);
-    } finally {
-      setLoadingVisit(null);
-    }
-  }
-
-  async function handleRevoke(visitId: string) {
-    if (!token) return;
-    setLoadingVisit(visitId);
-    try {
-      await revokeAction({ data: { token, visitId } });
-      fetchData(token);
-    } finally {
-      setLoadingVisit(null);
-    }
-  }
-
-  async function handleDelete(visitId: string) {
-    if (!token) return;
-    setLoadingVisit(visitId);
-    try {
-      await deleteAction({ data: { token, visitId } });
-      fetchData(token);
-    } finally {
-      setLoadingVisit(null);
-    }
-  }
-
-  async function handleCall(visit: { id: string }) {
-    if (!token) return;
-    setLoadingVisit(visit.id);
-    try {
-      await callVisitAction({ data: { token, visitId: visit.id, loket } });
-    } catch {
-      alert("Gagal memanggil antrian. Coba lagi.");
-    } finally {
-      setLoadingVisit(null);
-    }
-  }
-
-  async function handleFinish(visitId: string) {
-    if (!token) return;
-    setLoadingVisit(visitId);
-    try {
-      await finishVisitAction({ data: { token, visitId } });
-      fetchData(token, appliedFilters, page);
-    } catch {
-      alert("Gagal menandai selesai. Coba lagi.");
-    } finally {
-      setLoadingVisit(null);
-    }
-  }
-
   function handleLoketChange(value: number) {
     setLoket(value);
-    try {
-      localStorage.setItem(LOKET_STORAGE_KEY, String(value));
-    } catch {}
+    saveLoket(value);
   }
 
   async function handleDisplayPlaylist(event: React.FormEvent) {
@@ -321,10 +230,10 @@ function DashboardPage() {
     setSavingDisplayPlaylist(true);
     try {
       await updateDisplayPlaylistAction({ data: { token, playlist: displayPlaylist } });
-      await fetchData(token, appliedFilters, page);
+      await fetchData(token);
       setDisplayPlaylist(null);
     } catch {
-      alert("ID / URL playlist YouTube tidak valid.");
+      alert("URL / ID YouTube tidak valid. Pakai satu playlist, atau beberapa video (maks. ±20).");
     } finally {
       setSavingDisplayPlaylist(false);
     }
@@ -407,7 +316,7 @@ function DashboardPage() {
               <div>
                 <p className="font-medium text-gray-800">Tampilkan akun BPJS pengujian</p>
                 <p className="text-sm text-gray-500">
-                  Panel nomor & QR dummy untuk menguji scanner di bagian atas dashboard.
+                  Nomor & QR dummy untuk menguji scanner, tampil di bawah ini.
                 </p>
               </div>
               <SettingSwitch
@@ -417,6 +326,11 @@ function DashboardPage() {
                 onChange={handleBpjsTestAccountsSetting}
               />
             </div>
+            {data.showBpjsTestAccounts && (
+              <div className="mt-2">
+                <BpjsTestAccounts />
+              </div>
+            )}
 
             <form
               onSubmit={handleKioskReturnSeconds}
@@ -453,17 +367,17 @@ function DashboardPage() {
               <div>
                 <p className="font-medium text-gray-800">Video YouTube display</p>
                 <p className="text-sm text-gray-500">
-                  URL / ID playlist atau satu video untuk layar TV <code>/display</code>. Kosongkan untuk menyembunyikan video.
+                  Satu URL playlist, atau beberapa URL video (satu per baris) untuk layar TV <code>/display</code>. Maksimal ±20 video. Kosongkan untuk menyembunyikan video.
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
-                <input
-                  type="text"
-                  value={displayPlaylist ?? data.displayYoutubePlaylist}
+                <textarea
+                  rows={3}
+                  value={displayPlaylist ?? data.displayYoutubePlaylist.split(",").join("\n")}
                   onChange={(event) => setDisplayPlaylist(event.target.value)}
-                  placeholder="PLxxxxxxxx"
-                  aria-label="Playlist YouTube display"
-                  className="h-10 w-64 rounded-md border border-gray-300 px-3 text-sm"
+                  placeholder={"https://www.youtube.com/watch?v=...\nhttps://youtu.be/..."}
+                  aria-label="Video YouTube display"
+                  className="w-72 rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
                 <Button type="submit" size="sm" disabled={savingDisplayPlaylist}>
                   Simpan
@@ -567,6 +481,7 @@ function DashboardPage() {
             <h1 className="font-bold text-gray-900">Klinik Syamsinar Maros Self Service</h1>
             <p className="text-xs text-gray-400">Admin Dashboard</p>
           </div>
+          <AdminNavLinks />
         </div>
         <div className="flex items-center gap-3">
           {data.admin.role === "admin" && (
@@ -574,12 +489,9 @@ function DashboardPage() {
               type="button"
               variant="outline"
               size="sm"
-              aria-label="Buka pengaturan poli"
-              title="Pengaturan Poli"
               onClick={() => setPoliModalOpen(true)}
-              className="text-xl"
             >
-              ⚙️
+              ⚙️ Pengaturan
             </Button>
           )}
           {data.barcodeEnabled && (
@@ -600,193 +512,40 @@ function DashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {data.showBpjsTestAccounts && (
-          <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <h2 className="font-semibold text-amber-900">Akun BPJS untuk pengujian</h2>
-            <p className="mt-1 text-sm text-amber-800">
-              Nomor dan QR berikut data dummy untuk menguji scanner. Keduanya tidak terdaftar sebagai peserta BPJS; validasi FKTL dan biometrik Frista dapat gagal.
-            </p>
-            <ul className="mt-3 flex flex-wrap gap-3">
-              {[
-                { number: "0000000000001", qr: "/dev/bpjs-checkin-dummy-qr.png" },
-                { number: "0000000000002", qr: "/dev/bpjs-checkin-dummy-qr-2.png" },
-              ].map(({ number, qr }) => (
-                <li key={number} className="flex items-center gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2">
-                  <code className="font-semibold text-gray-900">{number}</code>
-                  <a href={qr} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">
-                    Lihat QR
-                  </a>
-                </li>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+        {/* 1. Work bar: which loket this petugas is, and freshness of the data */}
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
+          <label className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Saya melayani di</span>
+            <select
+              value={loket}
+              onChange={(e) => handleLoketChange(Number(e.target.value))}
+              aria-label="Loket saya"
+              className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900"
+            >
+              {Array.from({ length: LOKET_COUNT }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>Loket {n}</option>
               ))}
-            </ul>
-          </section>
-        )}
-
-        {/* Stats */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">Statistik Hari Ini</h2>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 flex items-center gap-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="rounded"
-                />
-                Auto refresh
-              </label>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => fetchData(token)}
-              >
-                🔄 Refresh
-              </Button>
-            </div>
+            </select>
+            <span className="hidden text-sm text-gray-500 md:inline">Panggilan tampil di layar TV sebagai Loket {loket}.</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <a href="/display" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">
+              Buka layar TV ↗
+            </a>
+            <label className="flex cursor-pointer items-center gap-1.5 text-sm text-gray-600">
+              <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} className="rounded" />
+              Perbarui otomatis
+            </label>
+            <Button size="sm" variant="outline" onClick={() => fetchData(token)}>
+              🔄 Perbarui
+            </Button>
           </div>
-          <StatsCards stats={data.stats as any} />
         </section>
 
-        {/* Filters */}
-        <form
-          onSubmit={handleApplyFilter}
-          className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end"
-        >
-          <div className="flex flex-col gap-1 min-w-[220px] flex-1">
-            <label htmlFor="visit-search" className="text-xs font-medium text-gray-600">Cari</label>
-            <input
-              id="visit-search"
-              type="search"
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              placeholder="No. kunjungan, layanan, atau nomor offline (O001)"
-              className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="visit-date-from" className="text-xs font-medium text-gray-600">Dari Tanggal</label>
-            <input
-              id="visit-date-from"
-              type="date"
-              value={filters.dateFrom}
-              max={filters.dateTo || undefined}
-              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-              className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="visit-date-to" className="text-xs font-medium text-gray-600">Sampai Tanggal</label>
-            <input
-              id="visit-date-to"
-              type="date"
-              value={filters.dateTo}
-              min={filters.dateFrom || undefined}
-              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-              className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="visit-status" className="text-xs font-medium text-gray-600">Status</label>
-            <select
-              id="visit-status"
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
-            >
-              <option value="">Semua Status</option>
-              <option value="waiting">Menunggu</option>
-              <option value="served">Dilayani</option>
-              <option value="revoked">Dibatalkan</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="visit-service" className="text-xs font-medium text-gray-600">Layanan</label>
-            <select
-              id="visit-service"
-              value={filters.serviceCode}
-              onChange={(e) => setFilters({ ...filters, serviceCode: e.target.value })}
-              className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
-            >
-              <option value="">Semua Layanan</option>
-              {data.services.map((service) => (
-                <option key={service.code} value={service.code}>{service.label}</option>
-              ))}
-            </select>
-          </div>
-          <Button type="submit" size="sm">
-            Terapkan Filter
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              const reset = defaultFilters();
-              setFilters(reset);
-              fetchData(token, reset, 1);
-            }}
-          >
-            Hari Ini
-          </Button>
-        </form>
-
+        {/* 2. Primary task: call patients */}
         {token && <LoketCaller token={token} loket={loket} onChange={() => fetchData(token)} />}
 
-        {/* Table */}
-        <section>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-800">
-              {appliedFilters.dateFrom === todayString() && appliedFilters.dateTo === todayString()
-                ? "Antrian Hari Ini"
-                : "Daftar Kunjungan"}
-              <span className="ml-2 text-sm font-normal text-gray-400">
-                ({data.totalVisits} record)
-              </span>
-            </h2>
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              Loket saya
-              <select
-                value={loket}
-                onChange={(e) => handleLoketChange(Number(e.target.value))}
-                className="h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
-              >
-                {Array.from({ length: LOKET_COUNT }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>Loket {n}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <VisitsTable
-            visits={data.visits as any}
-            onServe={handleServe}
-            onRevoke={handleRevoke}
-            onDelete={handleDelete}
-            onCall={handleCall}
-            onFinish={handleFinish}
-            loading={loadingVisit}
-          />
-          <nav className="mt-4 flex items-center justify-between" aria-label="Pagination kunjungan">
-              <Button
-                variant="outline"
-                disabled={page <= 1}
-                onClick={() => fetchData(token, appliedFilters, page - 1)}
-              >
-                ← Sebelumnya
-              </Button>
-              <span className="text-sm text-gray-600">
-                Halaman {page} dari {Math.ceil(data.totalVisits / data.pageSize)}
-              </span>
-              <Button
-                variant="outline"
-                disabled={page >= Math.ceil(data.totalVisits / data.pageSize)}
-                onClick={() => fetchData(token, appliedFilters, page + 1)}
-              >
-                Berikutnya →
-              </Button>
-          </nav>
-        </section>
       </main>
     </div>
   );

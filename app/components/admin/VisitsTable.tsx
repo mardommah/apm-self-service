@@ -3,6 +3,9 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { formatDate, formatTime, SERVICE_ICONS, STATUS_LABELS } from "~/lib/utils";
 
+// Table shows wall-clock time only; the "GMT+8" suffix from formatTime is noise in a same-day list.
+const clock = (date: Date | string) => formatTime(date).replace(/\s*GMT.*$/, "");
+
 interface VisitRow {
   id: string;
   queueNumber: string;
@@ -55,7 +58,7 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
               {confirm.action === "delete" ? "🗑️" : "⚠️"}
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">
-              {confirm.action === "delete" ? "Hapus Data?" : "Revoke Kunjungan?"}
+              {confirm.action === "delete" ? "Hapus Data?" : "Batalkan Kunjungan?"}
             </h3>
             <p className="text-gray-500 text-sm mb-6">
               {confirm.action === "delete"
@@ -91,26 +94,22 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-gray-600">No. Antrian</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-600">No. Kunjungan</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-600">Layanan</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-600">Tanggal & Waktu</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-600">Scan HP</th>
-              <th className="text-left px-4 py-3 font-semibold text-gray-600">Dilayani</th>
-              <th className="text-right px-4 py-3 font-semibold text-gray-600">Aksi</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500">No. Antrean</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500">Layanan</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500">Daftar</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500">Status</th>
+              <th className="text-right px-4 py-2.5 font-medium text-gray-500">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {visits.map((v) => (
               <tr key={v.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3 font-mono text-base font-bold text-gray-900">
-                  {v.queueNumber}
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-700 max-w-[140px] truncate">
-                  {v.id}
-                </td>
+                {/* Visit id is only needed for support/search, so it sits small under the queue number. */}
                 <td className="px-4 py-3">
+                  <div className="font-mono text-base font-bold text-gray-900">{v.queueNumber}</div>
+                  <div className="max-w-[120px] truncate font-mono text-[11px] text-gray-400" title={v.id}>{v.id}</div>
+                </td>
+                <td className="px-4 py-3 text-gray-800">
                   <span className="flex items-center gap-1.5">
                     <span role="img" aria-hidden>
                       {SERVICE_ICONS[v.service.code] ?? "🏥"}
@@ -118,32 +117,19 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
                     {v.service.label}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                  <div>{formatDate(v.createdAt)}</div>
-                  <div className="text-xs text-gray-400">{formatTime(v.createdAt)}</div>
+                <td className="px-4 py-3 whitespace-nowrap text-gray-700" title={formatDate(v.createdAt)}>
+                  {clock(v.createdAt)}
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant={statusVariant[v.status] ?? "secondary"}>
                     {STATUS_LABELS[v.status] ?? v.status}
                   </Badge>
-                </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
-                  {v.scannedAt ? (
-                    <span className="text-green-600">✓ {formatTime(v.scannedAt)}</span>
-                  ) : (
-                    <span className="text-gray-300">Belum scan</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
-                  {v.servedAt ? (
-                    <div>
-                      <div className="text-green-600">✓ {formatTime(v.servedAt)}</div>
-                      {v.servedByAdmin && (
-                        <div className="text-gray-400">{v.servedByAdmin.username}</div>
-                      )}
+                  {(v.servedAt || v.scannedAt) && (
+                    <div className="mt-1 text-xs text-gray-500">
+                      {v.servedAt
+                        ? `${clock(v.servedAt)}${v.servedByAdmin ? ` · ${v.servedByAdmin.username}` : ""}`
+                        : `Scan HP ${clock(v.scannedAt!)}`}
                     </div>
-                  ) : (
-                    <span className="text-gray-300">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -164,25 +150,29 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
                       </Button>
                     )}
                     {v.status === "served" && v.called && !v.callFinished && (
-                      <Button size="sm" variant="outline" disabled={loading === v.id} onClick={() => onFinish(v.id)}>
+                      <Button size="sm" variant="success" disabled={loading === v.id} onClick={() => onFinish(v.id)}>
                         {loading === v.id ? "..." : "✓ Selesai"}
                       </Button>
                     )}
+                    {/* Rare, destructive actions: quiet text buttons, separated from the daily actions. */}
+                    <span aria-hidden className="mx-1 h-6 w-px bg-gray-200" />
                     {v.status !== "revoked" && (
                       <Button
                         size="sm"
-                        variant="warning"
+                        variant="ghost"
                         disabled={loading === v.id}
                         onClick={() => setConfirm({ action: "revoke", id: v.id })}
+                        className="text-amber-700 hover:bg-amber-50"
                       >
-                        Revoke
+                        Batalkan
                       </Button>
                     )}
                     <Button
                       size="sm"
-                      variant="destructive"
+                      variant="ghost"
                       disabled={loading === v.id}
                       onClick={() => setConfirm({ action: "delete", id: v.id })}
+                      className="text-red-600 hover:bg-red-50"
                     >
                       Hapus
                     </Button>
