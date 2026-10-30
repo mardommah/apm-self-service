@@ -41,13 +41,8 @@ export const Route = createFileRoute("/kiosk/qr/$visitId")({
     search.from === "kiosk2" ? { from: "kiosk2" } : {},
   loader: async ({ params }): Promise<VisitDetail> => {
     const { visitId } = params as any;
-    try {
-      return await getVisitAction({ data: { visitId } });
-    } catch (error) {
-      const offline = offlineVisitDetail(visitId);
-      if (!offline) throw error;
-      return offline;
-    }
+    // Outbox first: an offline ticket shows instantly instead of waiting for an unreachable server.
+    return offlineVisitDetail(visitId) ?? getVisitAction({ data: { visitId } });
   },
   component: QRPage,
 });
