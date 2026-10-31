@@ -43,7 +43,7 @@ export async function getLoketCallerState() {
         .from(services)
         .where(eq(services.code, code));
       const [last] = await getDb()
-        .select({ ...visitFields, loket: queueCalls.loket })
+        .select({ ...visitFields, loket: queueCalls.loket, finishedAt: queueCalls.finishedAt })
         .from(queueCalls)
         .innerJoin(visits, eq(queueCalls.visitId, visits.id))
         .innerJoin(services, eq(visits.serviceId, services.id))
@@ -55,7 +55,15 @@ export async function getLoketCallerState() {
       // Lets the caller toast tickets that arrived since its last poll.
       const newest = newestRow ? { id: newestRow.id, queueNumber: await getDailyQueueNumber(newestRow) } : null;
       const current = last
-        ? { id: last.id, status: last.status, loket: last.loket, queueNumber: await getDailyQueueNumber(last), linked: Boolean(parseMliteNote(last.notes)) }
+        ? {
+            id: last.id,
+            status: last.status,
+            loket: last.loket,
+            queueNumber: await getDailyQueueNumber(last),
+            linked: Boolean(parseMliteNote(last.notes)),
+            // Latest call of this ticket marked "Selesai" (same as the visits list / TV "SELESAI DILAYANI").
+            finished: last.finishedAt !== null,
+          }
         : null;
       return { serviceCode: code, label: service?.label ?? code, prefix: mlitePrefix({ code, queuePrefix: service?.queuePrefix }), waiting: waitingRows.length, newest, current };
     }),

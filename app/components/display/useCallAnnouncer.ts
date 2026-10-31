@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { callText, chime, loadResponsiveVoice, playSound, PRAYER_SOUND_URL, prayerAnnouncementText, speak } from "~/lib/announce";
+import { callText, chime, playSound, PRAYER_SOUND_URL, prayerAnnouncementText, speak } from "~/lib/announce";
 import type { QueueCall } from "~/server/functions/calls";
 
 export interface ActiveCall {
@@ -40,7 +40,6 @@ export function useCallAnnouncer() {
 
   useEffect(() => {
     mounted.current = true;
-    loadResponsiveVoice();
     return () => {
       mounted.current = false;
     };

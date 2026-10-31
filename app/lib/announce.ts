@@ -3,8 +3,8 @@
 const RV_VOICE = "Indonesian Female";
 const MAX_SPEAK_MS = 15_000;
 
-export function loadResponsiveVoice() {
-  const key = import.meta.env.VITE_RESPONSIVEVOICE_KEY;
+/** `key` comes from the server at runtime (getDisplayAction), so a build without the env var still gets it. */
+export function loadResponsiveVoice(key: string) {
   if (!key || document.getElementById("responsivevoice")) return;
   const script = document.createElement("script");
   script.id = "responsivevoice";
@@ -23,32 +23,67 @@ export function prayerAnnouncementText(prayerLabel: string) {
   return `Diberitahukan kepada seluruh staff, pasien dan pengunjung Klinik Syamsinar, saat ini telah memasuki waktu sholat ${prayerLabel}. Bagi bapak/ibu yang ingin menunaikan ibadah, fasilitas musholla tersedia di lantai 2. Terima kasih.`;
 }
 
+// ResponsiveVoice that never starts (key not valid for this domain, script/network blocked) falls back to the browser voice.
+const RV_START_TIMEOUT_MS = 4_000;
+
 /** Resolves when speech ends (or after a length-based limit if the engine never reports the end). */
 export function speak(text: string, options: { pitch?: number } = {}): Promise<void> {
   const pitch = options.pitch ?? 1;
   return new Promise((resolve) => {
     // Long announcements (prayer) need more than the 15s a queue call takes.
-    const timer = setTimeout(resolve, Math.max(MAX_SPEAK_MS, text.length * 120));
-    const done = () => {
+    const timer = setTimeout(done, Math.max(MAX_SPEAK_MS, text.length * 120));
+    let finished = false;
+    function done() {
+      if (finished) return;
+      finished = true;
       clearTimeout(timer);
       resolve();
-    };
-    const rv = (window as any).responsiveVoice;
-    if (rv?.voiceSupport?.()) {
-      rv.cancel();
-      rv.speak(text, RV_VOICE, { rate: 0.9, pitch, onend: done, onerror: done });
-      return;
     }
-    if (!("speechSynthesis" in window)) return done();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "id-ID";
-    utterance.rate = 0.9;
-    utterance.pitch = pitch;
-    utterance.onend = done;
-    utterance.onerror = done;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    const rv = (window as any).responsiveVoice;
+    if (!rv?.voiceSupport?.()) return browserSpeak(text, pitch, done);
+    let started = false;
+    const watchdog = setTimeout(() => {
+      if (started || finished) return;
+      console.warn("[announce] ResponsiveVoice did not start, using browser speech");
+      rv.cancel();
+      browserSpeak(text, pitch, done);
+    }, RV_START_TIMEOUT_MS);
+    rv.cancel();
+    rv.speak(text, RV_VOICE, {
+      rate: 0.9,
+      pitch,
+      onstart: () => (started = true),
+      onend: () => started && (clearTimeout(watchdog), done()),
+      onerror: () => {
+        console.warn("[announce] ResponsiveVoice error, using browser speech");
+        clearTimeout(watchdog);
+        if (!started) browserSpeak(text, pitch, done);
+        else done();
+      },
+    });
   });
+}
+
+/** Browser speechSynthesis, preferring an Indonesian voice. */
+function browserSpeak(text: string, pitch: number, done: () => void) {
+  if (!("speechSynthesis" in window)) {
+    console.warn("[announce] no speech engine available");
+    return done();
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "id-ID";
+  const voice = window.speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith("id"));
+  if (voice) utterance.voice = voice;
+  else console.warn("[announce] no Indonesian browser voice installed; using the default voice");
+  utterance.rate = 0.9;
+  utterance.pitch = pitch;
+  utterance.onend = done;
+  utterance.onerror = (event) => {
+    console.warn("[announce] browser speech error:", event.error);
+    done();
+  };
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
 }
 
 let audioContext: AudioContext | null = null;

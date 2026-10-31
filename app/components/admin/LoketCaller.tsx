@@ -1,6 +1,7 @@
 import * as Toast from "@radix-ui/react-toast";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { callVisitAction } from "~/server/actions/display";
+import { serveAction } from "~/server/actions/dashboard-visits";
+import { callVisitAction, finishVisitAction } from "~/server/actions/display";
 import { callLoketAction, getLoketCallerAction, saveRmAction, type LoketCallerState } from "~/server/actions/loket-caller";
 import { LoketCallerCard } from "./LoketCallerCard";
 
@@ -11,6 +12,8 @@ const ERRORS: Record<string, string> = {
   VISIT_NOT_IN_MLITE: "Tiket ini tidak tercatat di mLITE, No RM tidak bisa disimpan.",
   MLITE_RM_NOT_SAVED: "mLITE tidak menyimpan No RM. Coba lagi.",
   VISIT_NOT_WAITING: "Tiket ini sudah dilayani atau dibatalkan.",
+  VISIT_REVOKED: "Tiket ini sudah dibatalkan.",
+  CALL_NOT_FOUND: "Tiket ini belum pernah dipanggil.",
   LOCK_BUSY: "Loket lain sedang memanggil. Coba lagi.",
 };
 
@@ -86,6 +89,16 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
                 await run(() => callVisitAction({ data: { token, visitId, loket } }));
               }}
               onSaveRm={(visitId, noRkmMedis) => run(() => saveRmAction({ data: { token, visitId, noRkmMedis } }))}
+              onServe={async (visitId) => {
+                await run(async () => {
+                  const result = await serveAction({ data: { token, visitId } });
+                  // markServed reports instead of throwing when another loket already served / revoked it.
+                  if (!result.success) throw new Error(result.reason === "REVOKED" ? "VISIT_REVOKED" : "VISIT_NOT_WAITING");
+                });
+              }}
+              onFinish={async (visitId) => {
+                await run(() => finishVisitAction({ data: { token, visitId } }));
+              }}
             />
           ))}
         </div>

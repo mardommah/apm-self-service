@@ -8,11 +8,13 @@ type Props = {
   onCall: (number?: string) => Promise<void>;
   onRecall: (visitId: string) => Promise<void>;
   onSaveRm: (visitId: string, noRkmMedis: string) => Promise<boolean>;
+  onServe: (visitId: string) => Promise<void>;
+  onFinish: (visitId: string) => Promise<void>;
 };
 
 const inputClass = "h-10 min-w-0 flex-1 rounded-md border border-gray-300 px-3 text-sm";
 
-export function LoketCallerCard({ card, busy, onCall, onRecall, onSaveRm }: Props) {
+export function LoketCallerCard({ card, busy, onCall, onRecall, onSaveRm, onServe, onFinish }: Props) {
   const [jump, setJump] = useState("");
   const [rm, setRm] = useState("");
   const current = card.current;
@@ -36,7 +38,7 @@ export function LoketCallerCard({ card, busy, onCall, onRecall, onSaveRm }: Prop
             <div className="font-mono text-5xl font-bold text-gray-900">{current.queueNumber}</div>
             <div className="mt-1 text-xs text-gray-500">
               Terakhir dipanggil · Loket {current.loket}
-              {current.status === "served" && " · RM tersimpan"}
+              {current.finished ? " · Selesai" : current.status === "served" && (current.linked ? " · RM tersimpan" : " · Dilayani")}
             </div>
           </>
         ) : (
@@ -50,6 +52,17 @@ export function LoketCallerCard({ card, busy, onCall, onRecall, onSaveRm }: Prop
       {current && (
         <Button variant="outline" className="mt-2 w-full" disabled={busy} onClick={() => onRecall(current.id)}>
           📣 Panggil ulang {current.queueNumber}
+        </Button>
+      )}
+      {/* Same steps as the visits list: Layani while waiting, then Selesai once served. */}
+      {current?.status === "waiting" && (
+        <Button variant="success" className="mt-2 w-full" disabled={busy} onClick={() => onServe(current.id)}>
+          ✓ Layani {current.queueNumber}
+        </Button>
+      )}
+      {current?.status === "served" && !current.finished && (
+        <Button variant="success" className="mt-2 w-full" disabled={busy} onClick={() => onFinish(current.id)}>
+          ✓ Selesai dilayani {current.queueNumber}
         </Button>
       )}
       <form

@@ -9,6 +9,7 @@ import { DisplayPrayerOverlay } from "./DisplayPrayerOverlay";
 import { DisplaySoundGate } from "./DisplaySoundGate";
 import { DISPLAY_RUNNING_TEXT, displayToday } from "./displayRunningText";
 import { prayerRunningText } from "~/lib/prayer-times";
+import { loadResponsiveVoice } from "~/lib/announce";
 import { DisplayTopBar } from "./DisplayTopBar";
 import { DisplayVideo } from "./DisplayVideo";
 import { useCallAnnouncer } from "./useCallAnnouncer";
@@ -23,6 +24,7 @@ export function DisplayScreen({ initial }: { initial: DisplayData }) {
   const seenTest = useRef(initial.test?.id);
   const { active, activePrayer, flashId, enqueue, enqueuePrayer } = useCallAnnouncer();
   usePrayerAlarm(data.prayer, enqueuePrayer);
+  useEffect(() => loadResponsiveVoice(data.responsiveVoiceKey), [data.responsiveVoiceKey]);
   const scale = useDisplayScale();
   // Re-evaluated on every poll, so the prayer line rolls over at midnight; memoized so the marquee is not restarted each poll.
   const today = displayToday();

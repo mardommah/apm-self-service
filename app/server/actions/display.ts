@@ -40,7 +40,9 @@ export const getDisplayAction = createServerFn({ method: "GET" })
       null,
     );
     const cursor = Math.max(data.afterId ?? 0, lastCall?.id ?? 0, ...calls.map((c) => c.id));
-    return { lokets, calls, lastCall, cursor, playlist, prayer, test: getDisplayTest() };
+    // Read at runtime: a client build made without the env var still gets the key.
+    const responsiveVoiceKey = process.env.RESPONSIVEVOICE_KEY ?? process.env.VITE_RESPONSIVEVOICE_KEY ?? "";
+    return { lokets, calls, lastCall, cursor, playlist, prayer, test: getDisplayTest(), responsiveVoiceKey };
   });
 
 export type DisplayData = Awaited<ReturnType<typeof getDisplayAction>>;
