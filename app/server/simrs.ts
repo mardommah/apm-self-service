@@ -163,10 +163,10 @@ type SimrsPatientRow = RowDataPacket & {
   kunjungan_terakhir: string | null;
 };
 
-export const SIMRS_PATIENT_SEARCH_LIMIT = 50;
+export const SIMRS_PATIENT_PAGE_SIZE = 50;
 
-/** Read-only lookup in SIMRS `pasien` (+ `reg_periksa` counts). Every filter given must match. */
-export async function searchSimrsPatients({ name, birthDate, serviceDate }: SimrsPatientSearch) {
+/** Read-only lookup in SIMRS `pasien` (+ `reg_periksa` counts). Every filter given must match. `page` starts at 1. */
+export async function searchSimrsPatients({ name, birthDate, serviceDate }: SimrsPatientSearch, page = 1) {
   const where: string[] = [];
   const params: string[] = [];
   if (name) {
@@ -185,27 +185,37 @@ export async function searchSimrsPatients({ name, birthDate, serviceDate }: Simr
     params.push(serviceDate);
   }
   if (where.length === 0) throw new Error("SEARCH_EMPTY");
+  if (!Number.isSafeInteger(page) || page < 1) throw new Error("PAGE_INVALID");
+  const offset = (page - 1) * SIMRS_PATIENT_PAGE_SIZE;
   let rows: SimrsPatientRow[];
+  let total: number;
   try {
-    [rows] = await getSimrsPool().execute<SimrsPatientRow[]>(
-      `SELECT p.no_rkm_medis, p.nm_pasien,
-        DATE_FORMAT(p.tgl_lahir, '%Y-%m-%d') AS tgl_lahir, p.no_ktp, p.alamat,
-        (SELECT COUNT(*) FROM reg_periksa r
-          WHERE r.no_rkm_medis = p.no_rkm_medis AND IFNULL(r.stts, '') <> 'Batal') AS jml_kunjungan,
-        (SELECT DATE_FORMAT(MAX(r.tgl_registrasi), '%Y-%m-%d') FROM reg_periksa r
-          WHERE r.no_rkm_medis = p.no_rkm_medis AND IFNULL(r.stts, '') <> 'Batal') AS kunjungan_terakhir
-      FROM pasien p
-      WHERE ${where.join(" AND ")}
-      ORDER BY p.nm_pasien
-      LIMIT ${SIMRS_PATIENT_SEARCH_LIMIT}`,
-      params,
-    );
+    const pool = getSimrsPool();
+    const [[countRows], [pageRows]] = await Promise.all([
+      pool.execute<RowDataPacket[]>(`SELECT COUNT(*) AS total FROM pasien p WHERE ${where.join(" AND ")}`, params),
+      // LIMIT/OFFSET are validated integers, inlined (mysql2 execute rejects them as placeholders).
+      pool.execute<SimrsPatientRow[]>(
+        `SELECT p.no_rkm_medis, p.nm_pasien,
+          DATE_FORMAT(p.tgl_lahir, '%Y-%m-%d') AS tgl_lahir, p.no_ktp, p.alamat,
+          (SELECT COUNT(*) FROM reg_periksa r
+            WHERE r.no_rkm_medis = p.no_rkm_medis AND IFNULL(r.stts, '') <> 'Batal') AS jml_kunjungan,
+          (SELECT DATE_FORMAT(MAX(r.tgl_registrasi), '%Y-%m-%d') FROM reg_periksa r
+            WHERE r.no_rkm_medis = p.no_rkm_medis AND IFNULL(r.stts, '') <> 'Batal') AS kunjungan_terakhir
+        FROM pasien p
+        WHERE ${where.join(" AND ")}
+        ORDER BY p.nm_pasien, p.no_rkm_medis
+        LIMIT ${SIMRS_PATIENT_PAGE_SIZE} OFFSET ${offset}`,
+        params,
+      ),
+    ]);
+    rows = pageRows;
+    total = Number(countRows[0]?.total ?? 0);
   } catch (error) {
     if (error instanceof Error && error.message === "SIMRS_NOT_CONFIGURED") throw error;
     console.error("[simrs] patient search failed", error);
     throw new Error("SIMRS_UNAVAILABLE");
   }
-  return rows.map((row) => ({
+  const patients = rows.map((row) => ({
     noRkmMedis: row.no_rkm_medis,
     name: row.nm_pasien,
     birthDate: row.tgl_lahir,
@@ -214,4 +224,5 @@ export async function searchSimrsPatients({ name, birthDate, serviceDate }: Simr
     visitCount: Number(row.jml_kunjungan),
     lastVisit: row.kunjungan_terakhir,
   }) satisfies SimrsPatient);
+  return { patients, total, page, pageSize: SIMRS_PATIENT_PAGE_SIZE };
 }

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { LoketCaller } from "~/components/admin/LoketCaller";
-import { AdminNavLinks } from "~/components/admin/AdminNavLinks";
+import { AdminHeader } from "~/components/admin/AdminHeader";
 import { Button } from "~/components/ui/button";
 import { getDashboardDataAction } from "~/server/actions/dashboard-data";
 import { getSavedLoket, LOKET_COUNT, saveLoket } from "~/lib/admin-loket";
@@ -63,12 +63,6 @@ function DashboardPage() {
   }
 
 
-  async function handleLogout() {
-    const { clearToken } = await import("~/lib/auth-client");
-    clearToken();
-    navigate({ to: "/admin/login" });
-  }
-
   if (!data) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-gray-50">
@@ -79,34 +73,20 @@ function DashboardPage() {
 
   return (
     <div className="min-h-dvh bg-gray-50">
-      {/* Navbar */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🏥</span>
-          <div>
-            <h1 className="font-bold text-gray-900">Klinik Syamsinar Maros Self Service</h1>
-            <p className="text-xs text-gray-400">Admin Dashboard</p>
-          </div>
-          <AdminNavLinks isAdmin={data.admin.role === "admin"} />
-        </div>
-        <div className="flex items-center gap-3">
-          {data.barcodeEnabled && (
-            <Link
-              to="/admin/scan"
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2"
-            >
-              📷 Scan Barcode
-            </Link>
-          )}
-          <span className="text-sm text-gray-600 hidden sm:block">
-            {data.admin.username}
-            <span className="ml-1 text-xs text-gray-400">({data.admin.role})</span>
-          </span>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            Keluar
-          </Button>
-        </div>
-      </header>
+      <AdminHeader isAdmin={data.admin.role === "admin"}>
+        {data.barcodeEnabled && (
+          <Link
+            to="/admin/scan"
+            className="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
+          >
+            📷 <span className="hidden sm:inline">Scan Barcode</span>
+          </Link>
+        )}
+        <span className="hidden text-sm text-gray-600 md:block">
+          {data.admin.username}
+          <span className="ml-1 text-xs text-gray-400">({data.admin.role})</span>
+        </span>
+      </AdminHeader>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
         {/* 1. Work bar: which loket this petugas is, and freshness of the data */}
@@ -125,7 +105,7 @@ function DashboardPage() {
             </select>
             <span className="hidden text-sm text-gray-500 md:inline">Panggilan tampil di layar TV sebagai Loket {loket}.</span>
           </label>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <a href="/display" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">
               Buka layar TV ↗
             </a>

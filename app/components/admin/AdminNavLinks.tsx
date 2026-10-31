@@ -10,12 +10,12 @@ const LINKS = [
 /** Page navigation shared by the admin navbars; settings only for the admin role (server enforces it too). */
 export function AdminNavLinks({ isAdmin }: { isAdmin: boolean }) {
   return (
-    <nav aria-label="Menu admin" className="flex items-center gap-1">
+    <nav aria-label="Menu admin" className="flex w-max items-center gap-1">
       {LINKS.filter((link) => isAdmin || !("adminOnly" in link)).map((link) => (
         <Link
           key={link.to}
           to={link.to}
-          className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           activeProps={{ className: "bg-blue-50 text-blue-700", "aria-current": "page" }}
         >
           {link.label}

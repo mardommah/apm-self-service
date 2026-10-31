@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { AdminNavLinks } from "~/components/admin/AdminNavLinks";
+import { AdminHeader } from "~/components/admin/AdminHeader";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
 import { BpjsTestAccounts } from "~/components/admin/BpjsTestAccounts";
 import { DisplayCallTest } from "~/components/admin/DisplayCallTest";
@@ -231,23 +231,11 @@ function SettingsPage() {
     }
   }
 
-  async function handleLogout() {
-    const { clearToken } = await import("~/lib/auth-client");
-    clearToken();
-    navigate({ to: "/admin/login" });
-  }
-
   if (!data) return <div className="grid min-h-dvh place-items-center text-gray-400">Memuat…</div>;
 
   return (
     <div className="min-h-dvh bg-gray-50">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
-        <div className="flex items-center gap-6">
-          <h1 className="font-bold text-gray-900">🏥 Klinik Syamsinar Maros</h1>
-          <AdminNavLinks isAdmin={data.admin.role === "admin"} />
-        </div>
-        <Button variant="outline" size="sm" onClick={handleLogout}>Keluar</Button>
-      </header>
+      <AdminHeader isAdmin={data.admin.role === "admin"} />
 
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         <h2 className="text-xl font-semibold text-gray-800">Pengaturan Aplikasi</h2>

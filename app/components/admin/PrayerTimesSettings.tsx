@@ -121,7 +121,7 @@ export function PrayerTimesSettings({ token, value, onSaved }: { token: string; 
         </label>
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
         {PRAYER_NAMES.map((name) => (
           <label key={name} className="text-sm text-gray-600">
             {PRAYER_LABELS[name]} <span className="font-mono text-gray-900">{formatMinutes(minutes[name])}</span>

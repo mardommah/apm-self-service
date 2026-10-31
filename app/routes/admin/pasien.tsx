@@ -1,25 +1,31 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { AdminNavLinks } from "~/components/admin/AdminNavLinks";
+import { AdminHeader } from "~/components/admin/AdminHeader";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { searchSimrsPatientsAction } from "~/server/actions/patient-search";
-import type { SimrsPatient } from "~/server/simrs";
 
 export const Route = createFileRoute("/admin/pasien")({
   component: PatientSearchPage,
 });
 
-const LIMIT = 50; // = SIMRS_PATIENT_SEARCH_LIMIT (server)
+type SearchForm = { name: string; birthDate: string; serviceDate: string };
+type SearchResult = Awaited<ReturnType<typeof searchSimrsPatientsAction>>;
+
+const EMPTY_FORM: SearchForm = { name: "", birthDate: "", serviceDate: "" };
 
 const ERRORS: Record<string, string> = {
   SEARCH_EMPTY: "Isi minimal satu: nama, tanggal lahir, atau tanggal layanan.",
   NAME_INVALID: "Nama minimal 3 huruf.",
   DATE_INVALID: "Format tanggal tidak valid.",
+  PAGE_INVALID: "Halaman tidak valid.",
   SIMRS_NOT_CONFIGURED: "Koneksi SIMRS belum dikonfigurasi di server.",
   SIMRS_UNAVAILABLE: "SIMRS tidak dapat dihubungi. Coba lagi.",
 };
+
+/** Cell that shows its column name before the value when the row is a card (< md). */
+const CELL = "px-4 py-3 max-md:p-0 max-md:before:mr-1.5 max-md:before:text-xs max-md:before:text-gray-400 max-md:before:content-[attr(data-label)]";
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -31,8 +37,10 @@ function PatientSearchPage() {
   const navigate = useNavigate();
   const [token, setToken] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [form, setForm] = useState({ name: "", birthDate: "", serviceDate: "" });
-  const [results, setResults] = useState<SimrsPatient[] | null>(null);
+  const [form, setForm] = useState<SearchForm>(EMPTY_FORM);
+  // Filters of the results on screen: paging keeps them even if the form was edited since.
+  const [applied, setApplied] = useState<SearchForm>(EMPTY_FORM);
+  const [result, setResult] = useState<SearchResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -48,12 +56,17 @@ function PatientSearchPage() {
     })();
   }, []);
 
-  async function handleSearch(event: FormEvent) {
+  function handleSearch(event: FormEvent) {
     event.preventDefault();
+    search(form, 1);
+  }
+
+  async function search(filters: SearchForm, page: number) {
     setError("");
     setLoading(true);
     try {
-      setResults(await searchSimrsPatientsAction({ data: { token, ...form } }));
+      setResult(await searchSimrsPatientsAction({ data: { token, ...filters, page } }));
+      setApplied(filters);
     } catch (err) {
       const { clearToken, isUnauthorized } = await import("~/lib/auth-client");
       if (isUnauthorized(err)) {
@@ -68,21 +81,9 @@ function PatientSearchPage() {
     }
   }
 
-  async function handleLogout() {
-    const { clearToken } = await import("~/lib/auth-client");
-    clearToken();
-    navigate({ to: "/admin/login" });
-  }
-
   return (
     <div className="min-h-dvh bg-gray-50">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
-        <div className="flex items-center gap-6">
-          <h1 className="font-bold text-gray-900">🏥 Klinik Syamsinar Maros</h1>
-          <AdminNavLinks isAdmin={isAdmin} />
-        </div>
-        <Button variant="outline" size="sm" onClick={handleLogout}>Keluar</Button>
-      </header>
+      <AdminHeader isAdmin={isAdmin} />
 
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
         <section>
@@ -127,8 +128,8 @@ function PatientSearchPage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setForm({ name: "", birthDate: "", serviceDate: "" });
-                  setResults(null);
+                  setForm(EMPTY_FORM);
+                  setResult(null);
                   setError("");
                 }}
               >
@@ -139,15 +140,16 @@ function PatientSearchPage() {
           {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
         </section>
 
-        {results && (
+        {result && (
           <section aria-live="polite">
             <p className="mb-2 text-sm text-gray-600">
-              {results.length} pasien ditemukan
-              {results.length >= LIMIT && ` (dibatasi ${LIMIT}; persempit pencarian)`}
+              {result.total} pasien ditemukan
+              {result.total > 0 &&
+                ` · menampilkan ${(result.page - 1) * result.pageSize + 1}–${(result.page - 1) * result.pageSize + result.patients.length}`}
             </p>
             <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <table className="w-full text-left text-sm max-md:block">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500 max-md:hidden">
                   <tr>
                     <th className="px-4 py-3">No. RM</th>
                     <th className="px-4 py-3">Nama</th>
@@ -158,27 +160,45 @@ function PatientSearchPage() {
                     <th className="px-4 py-3">Kunjungan Terakhir</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {results.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Tidak ada pasien yang cocok.</td></tr>
+                <tbody className="divide-y divide-gray-100 max-md:block">
+                  {result.patients.length === 0 && (
+                    <tr className="max-md:block"><td colSpan={7} className="px-4 py-6 text-center text-gray-400 max-md:block">Tidak ada pasien yang cocok.</td></tr>
                   )}
-                  {results.map((p) => (
-                    <tr key={p.noRkmMedis} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono font-semibold">{p.noRkmMedis}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(p.birthDate)}</td>
-                      <td className="px-4 py-3 font-mono">{p.nik || "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{p.address || "—"}</td>
-                      <td className="px-4 py-3 text-right">{p.visitCount}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{formatDate(p.lastVisit)}</td>
+                  {result.patients.map((p) => (
+                    // Below md: a card, label before each value (`data-label`), name on top.
+                    <tr key={p.noRkmMedis} className="hover:bg-gray-50 max-md:grid max-md:grid-cols-2 max-md:gap-x-3 max-md:gap-y-1.5 max-md:p-4">
+                      <td className="px-4 py-3 font-mono font-semibold max-md:p-0">{p.noRkmMedis}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900 max-md:col-span-2 max-md:row-start-1 max-md:p-0">{p.name}</td>
+                      <td data-label="Tgl. lahir" className={`${CELL} whitespace-nowrap`}>{formatDate(p.birthDate)}</td>
+                      <td data-label="NIK" className={`${CELL} max-md:col-span-2 font-mono`}>{p.nik || "—"}</td>
+                      <td data-label="Alamat" className={`${CELL} max-md:col-span-2 text-gray-600`}>{p.address || "—"}</td>
+                      <td data-label="Kunjungan" className={`${CELL} md:text-right`}>{p.visitCount}</td>
+                      <td data-label="Terakhir" className={`${CELL} whitespace-nowrap`}>{formatDate(p.lastVisit)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <Pagination result={result} loading={loading} onPage={(page) => search(applied, page)} />
           </section>
         )}
       </main>
     </div>
+  );
+}
+
+function Pagination({ result, loading, onPage }: { result: SearchResult; loading: boolean; onPage: (page: number) => void }) {
+  const pages = Math.max(1, Math.ceil(result.total / result.pageSize));
+  if (pages <= 1) return null;
+  return (
+    <nav className="mt-4 flex items-center justify-between" aria-label="Pagination pasien">
+      <Button variant="outline" disabled={loading || result.page <= 1} onClick={() => onPage(result.page - 1)}>
+        ← Sebelumnya
+      </Button>
+      <span className="text-sm text-gray-600">Halaman {result.page} dari {pages}</span>
+      <Button variant="outline" disabled={loading || result.page >= pages} onClick={() => onPage(result.page + 1)}>
+        Berikutnya →
+      </Button>
+    </nav>
   );
 }

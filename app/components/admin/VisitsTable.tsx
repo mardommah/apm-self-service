@@ -127,10 +127,10 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
         </div>
       )}
 
-      {/* Table */}
+      {/* Table from md; below that each row is a card (number + status, service, timeline, actions). */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+        <table className="w-full text-sm max-md:block">
+          <thead className="bg-gray-50 border-b border-gray-200 max-md:hidden">
             <tr>
               <th className="text-left px-4 py-2.5 font-medium text-gray-500">No. Antrean</th>
               <th className="text-left px-4 py-2.5 font-medium text-gray-500">Layanan</th>
@@ -139,15 +139,15 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
               <th className="text-right px-4 py-2.5 font-medium text-gray-500">Aksi</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 max-md:block">
             {visits.map((v) => (
-              <tr key={v.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={v.id} className="hover:bg-gray-50 transition-colors max-md:grid max-md:grid-cols-2 max-md:gap-x-3 max-md:gap-y-2 max-md:p-4">
                 {/* Visit id is only needed for support/search, so it sits small under the queue number. */}
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 max-md:p-0">
                   <div className="font-mono text-base font-bold text-gray-900">{v.queueNumber}</div>
                   <div className="max-w-[120px] truncate font-mono text-[11px] text-gray-400" title={v.id}>{v.id}</div>
                 </td>
-                <td className="px-4 py-3 text-gray-800">
+                <td className="px-4 py-3 text-gray-800 max-md:col-span-2 max-md:row-start-2 max-md:p-0">
                   <span className="flex items-center gap-1.5">
                     <span role="img" aria-hidden>
                       {SERVICE_ICONS[v.service.code] ?? "🏥"}
@@ -155,10 +155,10 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
                     {v.service.label}
                   </span>
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className="px-4 py-3 whitespace-nowrap max-md:col-span-2 max-md:row-start-3 max-md:p-0">
                   <VisitTimeline visit={v} />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 max-md:col-start-2 max-md:row-start-1 max-md:p-0 max-md:text-right">
                   <Badge variant={statusVariant[v.status] ?? "secondary"}>
                     {STATUS_LABELS[v.status] ?? v.status}
                   </Badge>
@@ -169,8 +169,8 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2">
+                <td className="px-4 py-3 max-md:col-span-2 max-md:p-0">
+                  <div className="flex flex-wrap items-center justify-end gap-2 max-md:justify-start">
                     {v.status === "waiting" && (
                       <Button size="sm" variant="outline" disabled={loading === v.id} onClick={() => onCall(v)}>
                         🔊 Panggil

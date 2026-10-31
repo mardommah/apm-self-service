@@ -34,21 +34,21 @@ export function VisitFilters({ filters, services, onChange, onApply, onReset }: 
       className="flex flex-wrap items-center gap-2 p-3"
     >
       <input type="search" value={filters.search} onChange={(e) => set({ search: e.target.value })}
-        placeholder="Cari nomor antrean / kunjungan…" aria-label="Cari kunjungan" className={`${field} min-w-[220px] flex-1`} />
-      <div className="flex items-center gap-1.5">
+        placeholder="Cari nomor antrean / kunjungan…" aria-label="Cari kunjungan" className={`${field} w-full sm:w-auto sm:min-w-[220px] sm:flex-1`} />
+      <div className="flex w-full items-center gap-1.5 sm:w-auto">
         <input type="date" value={filters.dateFrom} max={filters.dateTo || undefined}
-          onChange={(e) => set({ dateFrom: e.target.value })} aria-label="Dari tanggal" className={field} />
+          onChange={(e) => set({ dateFrom: e.target.value })} aria-label="Dari tanggal" className={`${field} min-w-0 flex-1`} />
         <span className="text-sm text-gray-400">–</span>
         <input type="date" value={filters.dateTo} min={filters.dateFrom || undefined}
-          onChange={(e) => set({ dateTo: e.target.value })} aria-label="Sampai tanggal" className={field} />
+          onChange={(e) => set({ dateTo: e.target.value })} aria-label="Sampai tanggal" className={`${field} min-w-0 flex-1`} />
       </div>
-      <select value={filters.status} onChange={(e) => set({ status: e.target.value })} aria-label="Status" className={field}>
+      <select value={filters.status} onChange={(e) => set({ status: e.target.value })} aria-label="Status" className={`${field} min-w-0 flex-1 sm:flex-none`}>
         <option value="">Semua status</option>
         <option value="waiting">Menunggu</option>
         <option value="served">Dilayani</option>
         <option value="revoked">Dibatalkan</option>
       </select>
-      <select value={filters.serviceCode} onChange={(e) => set({ serviceCode: e.target.value })} aria-label="Layanan" className={field}>
+      <select value={filters.serviceCode} onChange={(e) => set({ serviceCode: e.target.value })} aria-label="Layanan" className={`${field} min-w-0 flex-1 sm:flex-none`}>
         <option value="">Semua layanan</option>
         {services.map((s) => (
           <option key={s.code} value={s.code}>{s.label}</option>
