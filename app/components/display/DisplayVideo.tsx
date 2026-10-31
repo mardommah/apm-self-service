@@ -27,7 +27,7 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
         {info.total > 1 && <span>PLAYLIST {info.index} / {info.total}</span>}
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden border border-bp-ink bg-bp-navy">
+      <div className="group relative min-h-0 flex-1 overflow-hidden border border-bp-ink bg-bp-navy">
         <div ref={hostRef} className={`absolute inset-0 [&>iframe]:size-full ${failed ? "hidden" : ""}`} />
         {failed && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-6">
@@ -35,8 +35,9 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
             <p className="font-body text-[22px] text-[#BFDBFE]">Video sedang tidak tersedia</p>
           </div>
         )}
+        {/* Title, audio status and controls stay out of the way: shown only while the mouse is over the video (or the mute button has focus). */}
         {playing && (
-          <div className="pointer-events-none absolute inset-0">
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
             <span className="absolute left-7 top-7 flex items-center gap-2.5 bg-bp-navy px-3.5 py-2 font-caption text-[13px] text-white">
               <YouTubeMark size={18} /> YOUTUBE · SEDANG DIPUTAR
             </span>

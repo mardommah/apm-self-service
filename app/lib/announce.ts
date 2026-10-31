@@ -18,10 +18,17 @@ export function callText(queueNumber: string, serviceLabel: string, loket: numbe
   return `Antrian Nomor: ${spoken}. Layanan: ${serviceLabel}. Silahkan menuju ke loket ${loket}.`;
 }
 
-/** Resolves when speech ends (or after MAX_SPEAK_MS if the engine never reports the end). */
-export function speak(text: string): Promise<void> {
+/** Spoken when a prayer time starts (prayer name inserted). */
+export function prayerAnnouncementText(prayerLabel: string) {
+  return `Diberitahukan kepada seluruh staff, pasien dan pengunjung Klinik Syamsinar, saat ini telah memasuki waktu sholat ${prayerLabel}. Bagi bapak/ibu yang ingin menunaikan ibadah, fasilitas musholla tersedia di lantai 2. Terima kasih.`;
+}
+
+/** Resolves when speech ends (or after a length-based limit if the engine never reports the end). */
+export function speak(text: string, options: { pitch?: number } = {}): Promise<void> {
+  const pitch = options.pitch ?? 1;
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, MAX_SPEAK_MS);
+    // Long announcements (prayer) need more than the 15s a queue call takes.
+    const timer = setTimeout(resolve, Math.max(MAX_SPEAK_MS, text.length * 120));
     const done = () => {
       clearTimeout(timer);
       resolve();
@@ -29,13 +36,14 @@ export function speak(text: string): Promise<void> {
     const rv = (window as any).responsiveVoice;
     if (rv?.voiceSupport?.()) {
       rv.cancel();
-      rv.speak(text, RV_VOICE, { rate: 0.9, onend: done, onerror: done });
+      rv.speak(text, RV_VOICE, { rate: 0.9, pitch, onend: done, onerror: done });
       return;
     }
     if (!("speechSynthesis" in window)) return done();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "id-ID";
     utterance.rate = 0.9;
+    utterance.pitch = pitch;
     utterance.onend = done;
     utterance.onerror = done;
     window.speechSynthesis.cancel();
@@ -78,4 +86,21 @@ export function chime(): Promise<void> {
     osc.stop(start + 0.8);
   });
   return new Promise((resolve) => setTimeout(resolve, 1200));
+}
+
+export const PRAYER_SOUND_URL = "/sounds/prayer-announcement.mp3";
+
+/** Plays an audio file to the end; falls back to the chime if it cannot play (missing file, autoplay blocked). */
+export function playSound(url: string): Promise<void> {
+  return new Promise((resolve) => {
+    const audio = new Audio(url);
+    const timer = setTimeout(done, 20_000);
+    function done() {
+      clearTimeout(timer);
+      resolve();
+    }
+    audio.onended = done;
+    audio.onerror = () => chime().then(done, done);
+    audio.play().catch(() => chime().then(done, done));
+  });
 }

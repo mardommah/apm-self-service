@@ -7,7 +7,10 @@ import {
   setDisplayYoutubePlaylist,
   setKioskReturnSeconds,
   setShowBpjsTestAccounts,
+  setPrayerSettings,
 } from "../functions/settings";
+import { parsePrayerSettings, type PrayerSettings } from "~/lib/prayer-times";
+import { requestPrayerTest } from "../functions/prayer-test";
 import { setServiceQueuePrefix } from "../functions/visits";
 import { isQueuePrefix, MLITE_SERVICE_CODES } from "~/lib/queue-prefix";
 import { requireAdminToken } from "./admin-auth";
@@ -103,4 +106,21 @@ export const updateBpjsTestAccountsSettingAction = createServerFn({ method: "POS
     requireAdminToken(data.token, true);
     await setShowBpjsTestAccounts(data.enabled);
     return { ok: true };
+  });
+
+export const updatePrayerSettingsAction = createServerFn({ method: "POST" })
+  // Out-of-range values fall back to the Maros defaults instead of breaking the TV.
+  .validator((data: { token: string; settings: PrayerSettings }) => ({ token: data.token, settings: parsePrayerSettings(data.settings) }))
+  .handler(async ({ data }) => {
+    requireAdminToken(data.token, true);
+    await setPrayerSettings(data.settings);
+    return { ok: true };
+  });
+
+/** "Tes di layar TV": every open /display plays the prayer announcement once on its next poll. */
+export const testPrayerAnnouncementAction = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    requireAdminToken(data.token, true);
+    return requestPrayerTest();
   });

@@ -3,6 +3,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { appSettings } from "../schema";
+import { parsePrayerSettings, type PrayerSettings } from "~/lib/prayer-times";
 
 const SETTINGS_ID = 1;
 
@@ -129,5 +130,23 @@ export async function setShowBpjsTestAccounts(showBpjsTestAccounts: boolean) {
     .values({ id: SETTINGS_ID, showBpjsTestAccounts, updatedAt: new Date() })
     .onDuplicateKeyUpdate({
       set: { showBpjsTestAccounts, updatedAt: new Date() },
+    });
+}
+
+export async function getPrayerSettings() {
+  const [settings] = await getDb()
+    .select({ prayerTimes: appSettings.prayerTimes })
+    .from(appSettings)
+    .where(eq(appSettings.id, SETTINGS_ID))
+    .limit(1);
+  return parsePrayerSettings(settings?.prayerTimes ?? null);
+}
+
+export async function setPrayerSettings(prayerTimes: PrayerSettings) {
+  await getDb()
+    .insert(appSettings)
+    .values({ id: SETTINGS_ID, prayerTimes, updatedAt: new Date() })
+    .onDuplicateKeyUpdate({
+      set: { prayerTimes, updatedAt: new Date() },
     });
 }

@@ -24,7 +24,7 @@ export function DisplayTopBar() {
         <img src="/logo-klinik-s.png" alt="Klinik Syamsinar" className="h-[58px] w-[170px] object-contain" />
         <span aria-hidden className="h-[52px] w-px bg-bp-border" />
         <div className="flex flex-col gap-1.5">
-          <span className="font-caption text-[13px] tracking-[1.4px] text-bp-muted">DISPLAY ANTREAN / RUANG TUNGGU</span>
+          <span className="font-caption text-[13px] tracking-[1.4px] text-bp-muted">DISPLAY ANTREAN LOKET</span>
           <span className="font-display text-[28px] font-medium tracking-[-0.5px] text-bp-ink">Klinik Syamsinar Maros</span>
         </div>
       </div>

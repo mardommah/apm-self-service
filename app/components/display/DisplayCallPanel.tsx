@@ -36,9 +36,6 @@ function WaitingForCall() {
           <br />
           panggilan
         </span>
-        <span className="max-w-[460px] font-body text-2xl leading-snug text-[#BFDBFE]">
-          Nomor antrean akan tampil di sini saat dipanggil petugas.
-        </span>
       </div>
       <div className="relative flex items-center gap-3 border-t border-[#FFFFFF33] pt-5 font-body text-[22px] text-[#BFDBFE]">
         <Ticket size={24} aria-hidden className="shrink-0 text-bp-sky" />

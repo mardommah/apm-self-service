@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AdminNavLinks } from "~/components/admin/AdminNavLinks";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
 import { BpjsTestAccounts } from "~/components/admin/BpjsTestAccounts";
+import { PrayerTimesSettings } from "~/components/admin/PrayerTimesSettings";
 import { Button } from "~/components/ui/button";
 import { getDashboardDataAction } from "~/server/actions/dashboard-data";
 import { createPoliAction, updatePoliAction } from "~/server/actions/dashboard-poli";
@@ -382,6 +383,8 @@ function SettingsPage() {
                 </Button>
               </div>
             </form>
+
+            <PrayerTimesSettings token={token} value={data.prayerSettings} onSaved={() => fetchData(token)} />
 
             <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4">
               <div>

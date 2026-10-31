@@ -16,6 +16,7 @@ import {
   getFristaBypassEnabled,
   getKioskReturnSeconds,
   getShowBpjsTestAccounts,
+  getPrayerSettings,
 } from "../functions/settings";
 import { getCallStates } from "../functions/call-finish";
 import type { VisitStatus } from "../schema";
@@ -56,6 +57,7 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
       getKioskReturnSeconds(),
       getDisplayYoutubePlaylist(),
       getShowBpjsTestAccounts(),
+      getPrayerSettings(),
     ]);
     const [visitRows, totalVisits, stats, services] = results;
     const callStates = await getCallStates(visitRows.map((v) => v.id));
@@ -82,7 +84,7 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
         };
       }),
     );
-    const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled, autoPrintEnabled, kioskReturnSeconds, displayYoutubePlaylist, showBpjsTestAccounts] = results;
+    const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled, autoPrintEnabled, kioskReturnSeconds, displayYoutubePlaylist, showBpjsTestAccounts, prayerSettings] = results;
     return {
       visits,
       totalVisits,
@@ -97,6 +99,7 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
       kioskReturnSeconds,
       displayYoutubePlaylist,
       showBpjsTestAccounts,
+      prayerSettings,
       admin: { username: payload.username, role: payload.role },
     };
   });

@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { finishQueueCall } from "../functions/call-finish";
 import { createQueueCall, findVisitById, listCallsAfter, listLoketCalls } from "../functions/calls";
-import { getDisplayYoutubePlaylist } from "../functions/settings";
+import { getDisplayYoutubePlaylist, getPrayerSettings } from "../functions/settings";
+import { getPrayerTest } from "../functions/prayer-test";
 import { requireAdminToken } from "./admin-auth";
 
 export const callVisitAction = createServerFn({ method: "POST" })
@@ -28,17 +29,18 @@ export const finishVisitAction = createServerFn({ method: "POST" })
 export const getDisplayAction = createServerFn({ method: "GET" })
   .validator((data: { afterId?: number }) => data)
   .handler(async ({ data }) => {
-    const [lokets, calls, playlist] = await Promise.all([
+    const [lokets, calls, playlist, prayer] = await Promise.all([
       listLoketCalls(),
       data.afterId === undefined ? Promise.resolve([]) : listCallsAfter(data.afterId),
       getDisplayYoutubePlaylist(),
+      getPrayerSettings(),
     ]);
     const lastCall = lokets.reduce<(typeof lokets)[number] | null>(
       (latest, call) => (!latest || call.id > latest.id ? call : latest),
       null,
     );
     const cursor = Math.max(data.afterId ?? 0, lastCall?.id ?? 0, ...calls.map((c) => c.id));
-    return { lokets, calls, lastCall, cursor, playlist };
+    return { lokets, calls, lastCall, cursor, playlist, prayer, prayerTest: getPrayerTest() };
   });
 
 export type DisplayData = Awaited<ReturnType<typeof getDisplayAction>>;

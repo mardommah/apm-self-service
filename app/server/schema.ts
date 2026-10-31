@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   serial,
   date,
+  json,
 } from "drizzle-orm/mysql-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -44,6 +45,8 @@ export const appSettings = mysqlTable("app_settings", {
   autoPrintEnabled: boolean("auto_print_enabled").default(true).notNull(),
   kioskReturnSeconds: int("kiosk_return_seconds").default(30).notNull(),
   displayYoutubePlaylist: varchar("display_youtube_playlist", { length: 255 }).default("").notNull(),
+  // Running-text prayer times (migration 0018); NULL = Maros default, parsed by parsePrayerSettings.
+  prayerTimes: json("prayer_times"),
   showBpjsTestAccounts: boolean("show_bpjs_test_accounts").default(true).notNull(),
   updatedAt: datetime("updated_at").default(new Date()).notNull(),
 });
