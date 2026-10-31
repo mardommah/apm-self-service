@@ -20,7 +20,7 @@ export function DisplayScreen({ initial }: { initial: DisplayData }) {
   const [offline, setOffline] = useState(false);
   const cursor = useRef(initial.cursor);
   // A test sent before this page opened is not replayed.
-  const seenPrayerTest = useRef(initial.prayerTest?.id);
+  const seenTest = useRef(initial.test?.id);
   const { active, activePrayer, flashId, enqueue, enqueuePrayer } = useCallAnnouncer();
   usePrayerAlarm(data.prayer, enqueuePrayer);
   const scale = useDisplayScale();
@@ -47,9 +47,12 @@ export function DisplayScreen({ initial }: { initial: DisplayData }) {
         setData(next);
         setOffline(false);
         enqueue(next.calls);
-        if (next.prayerTest && next.prayerTest.id !== seenPrayerTest.current) {
-          seenPrayerTest.current = next.prayerTest.id;
-          enqueuePrayer(nextPrayerCall(next.prayer));
+        const test = next.test;
+        if (test && test.id !== seenTest.current) {
+          seenTest.current = test.id;
+          if (test.kind === "prayer") enqueuePrayer(nextPrayerCall(next.prayer));
+          // Sample call: negative id so it never flashes a real loket row.
+          else enqueue([{ id: -test.id, loket: test.loket, isRecall: false, calledAt: new Date(), queueNumber: "A001", serviceLabel: "Tes Panggilan", status: "called" }]);
         }
         delay = DISPLAY_POLL_MS;
       } catch {

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AdminNavLinks } from "~/components/admin/AdminNavLinks";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
 import { BpjsTestAccounts } from "~/components/admin/BpjsTestAccounts";
+import { DisplayCallTest } from "~/components/admin/DisplayCallTest";
 import { PrayerTimesSettings } from "~/components/admin/PrayerTimesSettings";
 import { Button } from "~/components/ui/button";
 import { getDashboardDataAction } from "~/server/actions/dashboard-data";
@@ -385,6 +386,8 @@ function SettingsPage() {
             </form>
 
             <PrayerTimesSettings token={token} value={data.prayerSettings} onSaved={() => fetchData(token)} />
+
+            <DisplayCallTest token={token} />
 
             <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4">
               <div>

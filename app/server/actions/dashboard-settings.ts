@@ -10,7 +10,7 @@ import {
   setPrayerSettings,
 } from "../functions/settings";
 import { parsePrayerSettings, type PrayerSettings } from "~/lib/prayer-times";
-import { requestPrayerTest } from "../functions/prayer-test";
+import { requestDisplayTest } from "../functions/display-test";
 import { setServiceQueuePrefix } from "../functions/visits";
 import { isQueuePrefix, MLITE_SERVICE_CODES } from "~/lib/queue-prefix";
 import { requireAdminToken } from "./admin-auth";
@@ -122,5 +122,16 @@ export const testPrayerAnnouncementAction = createServerFn({ method: "POST" })
   .validator((data: { token: string }) => data)
   .handler(async ({ data }) => {
     requireAdminToken(data.token, true);
-    return requestPrayerTest();
+    return requestDisplayTest({ kind: "prayer" });
+  });
+
+/** "Tes panggilan di TV": a sample call (A001, Tes Panggilan) to the admin's loket; not recorded anywhere. */
+export const testPatientCallAction = createServerFn({ method: "POST" })
+  .validator((data: { token: string; loket: number }) => {
+    if (!Number.isInteger(data.loket) || data.loket < 1 || data.loket > 99) throw new Error("LOKET_INVALID");
+    return data;
+  })
+  .handler(async ({ data }) => {
+    requireAdminToken(data.token, true);
+    return requestDisplayTest({ kind: "call", loket: data.loket });
   });
