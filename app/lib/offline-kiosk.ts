@@ -14,6 +14,7 @@ export type OfflineVisit = {
 const DATA_KEY = "kiosk2_data";
 const OUTBOX_KEY = "kiosk2_outbox";
 const SEQ_KEY = "kiosk2_offline_seq";
+const DEVICE_KEY = "kiosk2_device";
 
 function read<T>(key: string): T | null {
   try {
@@ -37,6 +38,18 @@ const getOutbox = () => read<OfflineVisit[]>(OUTBOX_KEY) ?? [];
 
 export const getOfflineVisit = (id: string) => getOutbox().find((visit) => visit.id === id) ?? null;
 
+/**
+ * Device code 1–99 in offline numbers ("O1-001"), so two kiosks offline at once never print the same number.
+ * Set once per device by opening /kiosk2?device=N; until then a random code is picked and kept.
+ */
+function deviceCode() {
+  const fromUrl = Number(new URLSearchParams(window.location.search).get("device"));
+  const stored = Number(localStorage.getItem(DEVICE_KEY));
+  const code = [fromUrl, stored].find((n) => Number.isInteger(n) && n >= 1 && n <= 99) ?? 1 + Math.floor(Math.random() * 99);
+  if (code !== stored) localStorage.setItem(DEVICE_KEY, String(code));
+  return code;
+}
+
 /** Throws when storage is unavailable so the kiosk shows an error instead of a ticket that never syncs. */
 export function queueOfflineVisit(service: { code: string; label: string }): OfflineVisit {
   const day = new Date().toDateString();
@@ -47,7 +60,7 @@ export function queueOfflineVisit(service: { code: string; label: string }): Off
     serviceCode: service.code,
     serviceLabel: service.label,
     createdAt: new Date().toISOString(),
-    queueNumber: `O${String(n).padStart(3, "0")}`,
+    queueNumber: `O${deviceCode()}-${String(n).padStart(3, "0")}`,
   };
   localStorage.setItem(OUTBOX_KEY, JSON.stringify([...getOutbox(), visit]));
   localStorage.setItem(SEQ_KEY, JSON.stringify({ day, n }));

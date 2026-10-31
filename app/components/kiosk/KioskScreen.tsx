@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { KioskRunningText } from "~/components/kiosk/KioskRunningText";
 import { KioskServiceGrid } from "~/components/kiosk/KioskServiceGrid";
 import { KioskWelcomePanel } from "~/components/kiosk/KioskWelcomePanel";
+import type { PatientStatus } from "~/lib/utils";
 import { GeneralPatientPanel } from "~/components/kiosk/GeneralPatientPanel";
 import {
   BpjsCameraScanner,
@@ -41,9 +42,10 @@ const createVisitAction = (
   serviceCode: string,
   registration?: { destinationServiceCode: string; patientStatus: "baru" | "lama" },
   skipMlite?: boolean,
+  patientStatus?: PatientStatus,
 ) =>
   kioskAction({
-    data: { action: "create", serviceCode, skipMlite, ...registration },
+    data: { action: "create", serviceCode, skipMlite, patientStatus, ...registration },
   }) as Promise<CreateVisitResult>;
 const checkinAction = (bookingCode: string, cardNumber: string, source: "manual" | "qr") =>
   kioskAction({ data: { action: "checkin", bookingCode, cardNumber, source } }) as Promise<CheckinResult>;
@@ -59,11 +61,13 @@ type Props = {
 };
 
 export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
-  const { services, fristaBypassEnabled, bookingScannerEnabled, generalPatientUrl } = data;
+  const { services, fristaBypassEnabled, bookingScannerEnabled } = data;
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [patientTypeOpen, setPatientTypeOpen] = useState(false);
+  // Second step of the BPJS patient type modal: existing patients pick print-only or check-in.
+  const [existingBpjsStep, setExistingBpjsStep] = useState(false);
   const [generalPatientOpen, setGeneralPatientOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingNumber, setBookingNumber] = useState("");
@@ -105,6 +109,7 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
     if (serviceCode === "registrasi" && !bpjsDirectPrint) {
       setError("");
       setCheckinMessage("");
+      setExistingBpjsStep(false);
       setPatientTypeOpen(true);
       return;
     }
@@ -274,12 +279,13 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
   async function submitVisit(
     serviceCode: string,
     registration?: { destinationServiceCode: string; patientStatus: "baru" | "lama" },
+    patientStatus?: PatientStatus,
   ) {
     setLoading(true);
     setError("");
     try {
       // Kiosk 2 tickets are not recorded in mLITE yet (app numbers only).
-      const visitId = await createVisitAction(serviceCode, registration, bpjsDirectPrint).then(
+      const visitId = await createVisitAction(serviceCode, registration, bpjsDirectPrint, patientStatus).then(
         (result) => result.id,
         (cause) => {
           const service = services.find((s) => s.code === serviceCode);
@@ -305,10 +311,7 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
       <KioskWelcomePanel />
 
       <div className="flex min-w-0 flex-col gap-5 px-4 py-6 lg:px-10 lg:pt-11 lg:pb-10">
-        {generalPatientOpen && <GeneralPatientPanel
-          url={generalPatientUrl}
-          onClose={() => setGeneralPatientOpen(false)}
-        />}
+        {generalPatientOpen && <GeneralPatientPanel onClose={() => setGeneralPatientOpen(false)} />}
         {fristaProcessing && (
           <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/70 p-6 backdrop-blur-sm">
             <section
@@ -355,34 +358,68 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
                 ×
               </button>
               <h2 id="patient-type-title" className="pr-14 text-2xl font-bold text-gray-900">
-                Pilih Jenis Pasien BPJS
+                {existingBpjsStep ? "Pasien Lama BPJS" : "Pilih Jenis Pasien BPJS"}
               </h2>
-              <p className="mt-2 text-gray-500">Apakah pasien sudah pernah terdaftar di klinik?</p>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => {
-                    setPatientTypeOpen(false);
-                    void submitVisit("registrasi");
-                  }}
-                  className="rounded-2xl border-2 border-green-200 bg-green-50 px-6 py-6 text-lg font-bold text-green-800 hover:border-green-500"
-                >
-                  Pasien Baru
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => {
-                    setPatientTypeOpen(false);
-                    setCameraScannerOpen(bookingScannerEnabled);
-                    setBookingOpen(true);
-                  }}
-                  className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-6 py-6 text-lg font-bold text-blue-800 hover:border-blue-500"
-                >
-                  Pasien Lama
-                </button>
-              </div>
+              <p className="mt-2 text-gray-500">
+                {existingBpjsStep ? "Cetak struk antrean saja, atau proses check-in booking?" : "Apakah pasien sudah pernah terdaftar di klinik?"}
+              </p>
+              {existingBpjsStep ? (
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setPatientTypeOpen(false);
+                      // Existing patients are not recorded in mLITE (createVisit skips it for "lama").
+                      void submitVisit("registrasi", undefined, "lama");
+                    }}
+                    className="rounded-2xl border-2 border-green-200 bg-green-50 px-6 py-6 text-lg font-bold text-green-800 hover:border-green-500"
+                  >
+                    Cetak Struk
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setPatientTypeOpen(false);
+                      setCameraScannerOpen(bookingScannerEnabled);
+                      setBookingOpen(true);
+                    }}
+                    className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-6 py-6 text-lg font-bold text-blue-800 hover:border-blue-500"
+                  >
+                    Proses Check-in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExistingBpjsStep(false)}
+                    className="text-sm font-semibold text-gray-500 sm:col-span-2"
+                  >
+                    &larr; Kembali
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setPatientTypeOpen(false);
+                      void submitVisit("registrasi", undefined, "baru");
+                    }}
+                    className="rounded-2xl border-2 border-green-200 bg-green-50 px-6 py-6 text-lg font-bold text-green-800 hover:border-green-500"
+                  >
+                    Pasien Baru
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => setExistingBpjsStep(true)}
+                    className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-6 py-6 text-lg font-bold text-blue-800 hover:border-blue-500"
+                  >
+                    Pasien Lama
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

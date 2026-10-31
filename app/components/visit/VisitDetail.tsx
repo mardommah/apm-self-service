@@ -17,6 +17,7 @@ export function VisitDetail({ visit, appUrl }: Props) {
     await printTicket({
       queueNumber: visit.queueNumber,
       serviceLabel: visit.service.label,
+      patientStatus: visit.patientStatus,
       createdAt: visit.createdAt,
       status: visit.status,
       appUrl: `${appUrl}/visit/${visit.id}`,

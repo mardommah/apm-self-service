@@ -1,5 +1,5 @@
 import { Badge } from "~/components/ui/badge";
-import { formatDate, formatTime, SERVICE_ICONS, STATUS_LABELS } from "~/lib/utils";
+import { formatDate, formatTime, PATIENT_STATUS_LABELS, SERVICE_ICONS, STATUS_LABELS, type PatientStatus } from "~/lib/utils";
 
 export interface VisitTicketData {
   id: string;
@@ -7,6 +7,7 @@ export interface VisitTicketData {
   createdAt: Date | string;
   servedAt?: Date | string | null;
   service: { code: string; label: string };
+  patientStatus?: PatientStatus | null;
   servedByAdmin?: { username: string } | null;
 }
 
@@ -42,6 +43,7 @@ export function VisitTicket({ visit }: { visit: VisitTicketData }) {
           <p className="font-mono text-xl font-bold text-gray-800 tracking-widest break-all">{visit.id}</p>
         </div>
         <div className="space-y-3 text-sm">
+          {visit.patientStatus && <Row label="Jenis Pasien" value={PATIENT_STATUS_LABELS[visit.patientStatus]} />}
           <Row label="Tanggal" value={formatDate(visit.createdAt)} />
           <Row label="Pukul" value={formatTime(visit.createdAt)} />
           <Row label="Status" value={

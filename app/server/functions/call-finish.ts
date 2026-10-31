@@ -17,17 +17,23 @@ export async function finishQueueCall(visitId: string) {
   await db.update(queueCalls).set({ finishedAt: new Date() }).where(eq(queueCalls.id, latest.id));
 }
 
-/** Visit ids (from `visitIds`) that have a call; `finished` = its latest call is finished. */
+/**
+ * Visit ids (from `visitIds`) that have a call; `finished` = its latest call is finished.
+ * `calledAt` = first call, `finishedAt` = latest call's finish (admin timeline).
+ */
 export async function getCallStates(visitIds: string[]) {
-  const states = new Map<string, { finished: boolean }>();
+  const states = new Map<string, { finished: boolean; calledAt: Date; finishedAt: Date | null }>();
   if (visitIds.length === 0) return states;
   const rows = await getDb()
-    .select({ visitId: queueCalls.visitId, finishedAt: queueCalls.finishedAt })
+    .select({ visitId: queueCalls.visitId, calledAt: queueCalls.calledAt, finishedAt: queueCalls.finishedAt })
     .from(queueCalls)
     .where(inArray(queueCalls.visitId, visitIds))
     .orderBy(desc(queueCalls.id));
   for (const row of rows) {
-    if (!states.has(row.visitId)) states.set(row.visitId, { finished: row.finishedAt !== null });
+    const state = states.get(row.visitId);
+    // Newest first: the first row seen is the latest call, later rows move calledAt back to the first call.
+    if (state) state.calledAt = row.calledAt;
+    else states.set(row.visitId, { finished: row.finishedAt !== null, calledAt: row.calledAt, finishedAt: row.finishedAt });
   }
   return states;
 }

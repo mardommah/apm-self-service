@@ -1,7 +1,7 @@
 "use server";
 
 import { eq, and, desc, gte, lte, count, sql, ne, like, notLike, or, isNull } from "drizzle-orm";
-import { getDb } from "../db";
+import { getDb, isDuplicateKeyError, withNamedLock } from "../db";
 import { visits, services, admins } from "../schema";
 import { ulid } from "~/lib/ulid";
 import { createGeneralLoketQueue } from "../simrs";
@@ -81,7 +81,7 @@ export async function createVisit(
   serviceCode: string,
   registration?: { destinationServiceCode: string; patientStatus: "baru" | "lama" },
   offline?: { id: string; createdAt: Date; queueNumber: string },
-  options?: { skipMlite?: boolean },
+  options?: { skipMlite?: boolean; mliteQueueType?: 1 | 2; patientStatus?: "baru" | "lama" },
 ) {
   const db = getDb();
 
@@ -112,24 +112,67 @@ export async function createVisit(
 
   const id = offline?.id ?? ulid();
   // shortcut: offline tickets synced later keep their O-number and get no mLITE row; staff record them in mLITE manually.
+  // The general patient loket screen lets the patient pick the mLITE queue (1 Loket/A, 2 CS/B); others follow the service prefix.
   const prefix = mlitePrefix(service);
-  const mliteNote = !offline && !options?.skipMlite && prefix ? await createMliteNote(prefix === "A" ? 1 : 2) : null;
-  await db
-    .insert(visits)
-    .values({
-      id,
-      serviceId: service.id,
-      destinationServiceId,
-      patientStatus: registration?.patientStatus ?? null,
-      deviceId: null,
-      status: "waiting",
-      createdAt: offline?.createdAt ?? new Date(),
-      notes: offline ? OFFLINE_NOTE_PREFIX + offline.queueNumber : mliteNote,
-    })
-    // Re-syncing the same offline visit is a no-op.
-    .onDuplicateKeyUpdate({ set: { id } });
+  const queueType = options?.mliteQueueType ?? (prefix && (prefix === "A" ? 1 : 2));
+  const patientStatus = registration?.patientStatus ?? options?.patientStatus ?? null;
+  // Only new patients (BPJS & general) go to mLITE for registration; every other ticket keeps the app's own number.
+  const mliteNote =
+    !offline && !options?.skipMlite && patientStatus === "baru" && queueType ? await createMliteNote(queueType) : null;
+  const createdAt = offline?.createdAt ?? new Date();
+  const notes = offline ? OFFLINE_NOTE_PREFIX + offline.queueNumber : mliteNote;
+  const values = { id, serviceId: service.id, destinationServiceId, patientStatus, deviceId: null, status: "waiting" as const, createdAt, notes };
+  const fixedNumber = offline?.queueNumber ?? parseMliteNote(mliteNote)?.queueNumber;
+  const queueNumber = fixedNumber
+    ? (await insertWithFixedQueueNumber({ ...values, queueNumber: fixedNumber }), fixedNumber)
+    : await insertWithAppQueueNumber(values, appQueueLetter(service.code, patientStatus));
 
-  return { id, service };
+  return { id, service, createdAt, notes, queueNumber };
+}
+
+// App tickets get a letter per service and their own daily counter; A/B stay reserved for mLITE, O for offline kiosk2.
+const APP_QUEUE_LETTERS: Record<string, string> = {
+  registrasi: "C",
+  poli_umum: "D",
+  customer_service: "E",
+  laboratorium: "L",
+  vaksinasi: "V",
+};
+
+function appQueueLetter(serviceCode: string, patientStatus: "baru" | "lama" | null) {
+  // Existing general patients keep D even when they picked Loket 2 (stored as customer_service).
+  if (patientStatus === "lama") return serviceCode === "registrasi" ? "C" : "D";
+  return APP_QUEUE_LETTERS[serviceCode] ?? "P";
+}
+
+/** Inserts the visit with the next "<letter>NNN" of its day; a named lock keeps concurrent kiosks from sharing a number. */
+async function insertWithAppQueueNumber(values: typeof visits.$inferInsert, letter: string) {
+  const dayStart = new Date(values.createdAt!);
+  dayStart.setHours(0, 0, 0, 0);
+  return withNamedLock(`apm_queue_${letter}`, async () => {
+    const [row] = await getDb()
+      .select({ last: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${visits.queueNumber}, 2) AS UNSIGNED)), 0)` })
+      .from(visits)
+      .where(and(gte(visits.createdAt, dayStart), like(visits.queueNumber, `${letter}%`)));
+    const queueNumber = letter + String(Number(row?.last ?? 0) + 1).padStart(3, "0");
+    await getDb().insert(visits).values({ ...values, queueNumber });
+    return queueNumber;
+  });
+}
+
+/**
+ * mLITE / offline numbers are decided before the insert. Re-syncing the same offline visit (same id) is a no-op;
+ * the same number on another visit that day (uq_visits_queue_date_number) throws QUEUE_NUMBER_TAKEN.
+ * No ON DUPLICATE KEY UPDATE: it would fire on the number index too and rewrite the other visit.
+ */
+async function insertWithFixedQueueNumber(values: typeof visits.$inferInsert) {
+  try {
+    await getDb().insert(visits).values(values);
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+    const [existing] = await getDb().select({ id: visits.id }).from(visits).where(eq(visits.id, values.id)).limit(1);
+    if (!existing) throw new Error("QUEUE_NUMBER_TAKEN");
+  }
 }
 
 // ─── Get visit by ID ──────────────────────────────────────────────────────────
@@ -144,6 +187,7 @@ export async function getVisitById(id: string) {
       scannedAt: visits.scannedAt,
       servedAt: visits.servedAt,
       notes: visits.notes,
+      queueNumber: visits.queueNumber,
       patientStatus: visits.patientStatus,
       destinationServiceId: visits.destinationServiceId,
       service: {
@@ -228,12 +272,17 @@ export async function markServed(id: string, adminId: number) {
     return { success: false, reason: "ALREADY_SERVED", visit };
   }
 
-  await db
+  // Conditional update: a concurrent scan / Simpan RM that got here first wins, this one reports it.
+  const [result] = await db
     .update(visits)
     .set({ status: "served", servedAt: new Date(), servedBy: adminId })
-    .where(eq(visits.id, id));
+    .where(and(eq(visits.id, id), eq(visits.status, "waiting")));
+  const latest = await getVisitById(id);
+  if (result.affectedRows === 0) {
+    return { success: false, reason: latest?.status === "revoked" ? "REVOKED" : "ALREADY_SERVED", visit: latest ?? visit };
+  }
 
-  return { success: true, reason: null, visit: await getVisitById(id) };
+  return { success: true, reason: null, visit: latest };
 }
 
 // ─── Mark revoked ─────────────────────────────────────────────────────────────
@@ -285,6 +334,7 @@ export async function listVisits(filters?: VisitFilters & { limit?: number; offs
       scannedAt: visits.scannedAt,
       servedAt: visits.servedAt,
       notes: visits.notes,
+      queueNumber: visits.queueNumber,
       service: {
         code: services.code,
         label: services.label,
@@ -320,7 +370,9 @@ export async function countVisits(filters?: VisitFilters) {
 
 // ─── Daily queue number ──────────────────────────────────────────────────────
 /** 1-based order of a visit among all visits created on the same day (ULID ids sort by time). */
-export async function getDailyQueueNumber(visit: { id: string; createdAt: Date; notes?: string | null }) {
+export async function getDailyQueueNumber(visit: { id: string; createdAt: Date; notes?: string | null; queueNumber?: string | null }) {
+  if (visit.queueNumber) return visit.queueNumber;
+  // Tickets created before migration 0016 have no stored number.
   if (visit.notes?.startsWith(OFFLINE_NOTE_PREFIX)) return visit.notes.slice(OFFLINE_NOTE_PREFIX.length);
   const mlite = parseMliteNote(visit.notes);
   if (mlite) return mlite.queueNumber;

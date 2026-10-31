@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "react-qr-code";
-import { SERVICE_ICONS } from "~/lib/utils";
+import { PATIENT_STATUS_LABELS, SERVICE_ICONS, type PatientStatus } from "~/lib/utils";
 import { printTicket } from "~/lib/print";
 import { QrActions } from "./QrActions";
 import { QrCountdown } from "./QrCountdown";
@@ -10,6 +10,7 @@ interface Props {
   queueNumber: string;
   serviceLabel: string;
   serviceCode: string;
+  patientStatus?: PatientStatus | null;
   createdAt: Date | string;
   status: string;
   appUrl: string;
@@ -25,6 +26,7 @@ export function QRDisplay({
   queueNumber,
   serviceLabel,
   serviceCode,
+  patientStatus,
   createdAt,
   status,
   appUrl,
@@ -59,6 +61,7 @@ export function QRDisplay({
     await printTicket({
       queueNumber,
       serviceLabel,
+      patientStatus,
       createdAt,
       status,
       appUrl: url,
@@ -77,6 +80,11 @@ export function QRDisplay({
             {icon}
           </div>
           <h1 className="text-3xl font-bold text-gray-900">{serviceLabel}</h1>
+          {patientStatus && (
+            <p className="mt-2 inline-block rounded-full bg-blue-100 px-4 py-1 text-lg font-semibold text-blue-800">
+              {PATIENT_STATUS_LABELS[patientStatus]}
+            </p>
+          )}
           <p className="text-gray-500 mt-1 text-lg">
             {barcodeEnabled ? "Scan kode QR dengan kamera HP Anda" : "Cetak dan simpan karcis antrean Anda"}
           </p>

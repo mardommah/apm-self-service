@@ -24,11 +24,13 @@ export const callLoketAction = createServerFn({ method: "POST" })
   .validator(validateCall)
   .handler(async ({ data }) => {
     requireAdminToken(data.token);
-    const visit = data.number
-      ? await findVisitByNumber(data.serviceCode, data.number)
-      : await findNextVisit(data.serviceCode);
-    if (!visit) throw new Error(data.number ? "NUMBER_NOT_FOUND" : "QUEUE_EMPTY");
-    return createQueueCall(visit.id, data.loket);
+    // Picked inside the call lock: two lokets pressing "Berikutnya" together get different tickets.
+    const result = await createQueueCall(
+      () => (data.number ? findVisitByNumber(data.serviceCode, data.number) : findNextVisit(data.serviceCode)),
+      data.loket,
+    );
+    if (!result) throw new Error(data.number ? "NUMBER_NOT_FOUND" : "QUEUE_EMPTY");
+    return result;
   });
 
 export const saveRmAction = createServerFn({ method: "POST" })

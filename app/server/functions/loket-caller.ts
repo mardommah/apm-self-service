@@ -12,7 +12,7 @@ function todayStart() {
   return d;
 }
 
-const visitFields = { id: visits.id, status: visits.status, createdAt: visits.createdAt, notes: visits.notes };
+const visitFields = { id: visits.id, status: visits.status, createdAt: visits.createdAt, notes: visits.notes, queueNumber: visits.queueNumber };
 
 function todayVisitsOf(serviceCode: string) {
   return and(eq(services.code, serviceCode), gte(visits.createdAt, todayStart()));
@@ -50,11 +50,14 @@ export async function getLoketCallerState() {
         .where(and(todayVisitsOf(code), gte(queueCalls.calledAt, todayStart())))
         .orderBy(desc(queueCalls.id))
         .limit(1);
-      const waiting = (await waitingUncalled(code)).length;
+      const waitingRows = await waitingUncalled(code);
+      const newestRow = waitingRows.at(-1);
+      // Lets the caller toast tickets that arrived since its last poll.
+      const newest = newestRow ? { id: newestRow.id, queueNumber: await getDailyQueueNumber(newestRow) } : null;
       const current = last
         ? { id: last.id, status: last.status, loket: last.loket, queueNumber: await getDailyQueueNumber(last), linked: Boolean(parseMliteNote(last.notes)) }
         : null;
-      return { serviceCode: code, label: service?.label ?? code, prefix: mlitePrefix({ code, queuePrefix: service?.queuePrefix }), waiting, current };
+      return { serviceCode: code, label: service?.label ?? code, prefix: mlitePrefix({ code, queuePrefix: service?.queuePrefix }), waiting: waitingRows.length, newest, current };
     }),
   );
 }
@@ -84,6 +87,9 @@ export async function saveVisitRm(visitId: string, noRkmMedis: string, adminId: 
   const [visit] = await getDb().select(visitFields).from(visits).where(eq(visits.id, visitId)).limit(1);
   const mlite = parseMliteNote(visit?.notes);
   if (!mlite) throw new Error("VISIT_NOT_IN_MLITE");
+  // Checked before writing to SIMRS so a revoked/served ticket never gets an RM there.
+  if (visit!.status !== "waiting") throw new Error("VISIT_NOT_WAITING");
   await saveMliteRm(mlite.kd, mlite.noantrian, mlite.type, noRkmMedis);
-  await markServed(visitId, adminId);
+  const served = await markServed(visitId, adminId);
+  if (!served.success) throw new Error("VISIT_NOT_WAITING");
 }

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { finishQueueCall } from "../functions/call-finish";
-import { createQueueCall, listCallsAfter, listLoketCalls } from "../functions/calls";
+import { createQueueCall, findVisitById, listCallsAfter, listLoketCalls } from "../functions/calls";
 import { getDisplayYoutubePlaylist } from "../functions/settings";
 import { requireAdminToken } from "./admin-auth";
 
@@ -11,7 +11,9 @@ export const callVisitAction = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     requireAdminToken(data.token);
-    return createQueueCall(data.visitId, data.loket);
+    const result = await createQueueCall(() => findVisitById(data.visitId), data.loket);
+    if (!result) throw new Error("Visit not found");
+    return result;
   });
 
 export const finishVisitAction = createServerFn({ method: "POST" })

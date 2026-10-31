@@ -99,6 +99,7 @@ function QRPage() {
       queueNumber={visit.queueNumber}
       serviceLabel={visit.service.label}
       serviceCode={visit.service.code}
+      patientStatus={visit.patientStatus}
       createdAt={visit.createdAt}
       status={visit.status}
       appUrl={appUrl}

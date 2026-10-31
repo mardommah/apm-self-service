@@ -7,9 +7,11 @@ import {
   int,
   mysqlEnum,
   index,
+  uniqueIndex,
   serial,
+  date,
 } from "drizzle-orm/mysql-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // ─── Services ────────────────────────────────────────────────────────────────
 export const services = mysqlTable("services", {
@@ -64,8 +66,13 @@ export const visits = mysqlTable(
     servedAt: datetime("served_at"),
     servedBy: int("served_by"),
     notes: text("notes"),
+    // Printed number, fixed at creation ("A001" mLITE, "C001" app, "O001" offline). Null for tickets made before migration 0016.
+    queueNumber: varchar("queue_number", { length: 8 }),
+    // Day of the ticket, only for the unique key below (migration 0017).
+    queueDate: date("queue_date").generatedAlwaysAs(sql`DATE(created_at)`, { mode: "stored" }),
   },
   (table) => ({
+    queueNumberUnique: uniqueIndex("uq_visits_queue_date_number").on(table.queueDate, table.queueNumber),
     deviceStatusIdx: index("idx_device_status").on(table.deviceId, table.status),
     createdAtIdx: index("idx_created_at").on(table.createdAt),
     serviceIdx: index("idx_service_id").on(table.serviceId),

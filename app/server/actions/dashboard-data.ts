@@ -5,7 +5,9 @@ import {
   getDailyQueueNumber,
   getDailyStats,
   listVisits,
+  parseMliteNote,
 } from "../functions/visits";
+import { getMliteQueueTimes, type MliteQueueTimes } from "../mlite-loket";
 import {
   getAutoPrintEnabled,
   getBarcodeEnabled,
@@ -57,13 +59,28 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
     ]);
     const [visitRows, totalVisits, stats, services] = results;
     const callStates = await getCallStates(visitRows.map((v) => v.id));
+    // Pasien baru (BPJS & Umum) tickets are linked to mlite_antrian_loket; SIMRS down only hides those times.
+    const mliteKds = visitRows.map((v) => parseMliteNote(v.notes)?.kd).filter((kd): kd is number => kd !== undefined);
+    const mliteTimes = await getMliteQueueTimes(mliteKds).catch((error) => {
+      console.error("mLITE queue times failed", error);
+      return null;
+    });
     const visits = await Promise.all(
-      visitRows.map(async (v) => ({
-        ...v,
-        queueNumber: await getDailyQueueNumber(v),
-        called: callStates.has(v.id),
-        callFinished: callStates.get(v.id)?.finished ?? false,
-      })),
+      visitRows.map(async (v) => {
+        const call = callStates.get(v.id);
+        const kd = parseMliteNote(v.notes)?.kd;
+        const mlite: MliteQueueTimes | "unavailable" | null =
+          kd === undefined ? null : mliteTimes ? (mliteTimes.get(kd) ?? null) : "unavailable";
+        return {
+          ...v,
+          queueNumber: await getDailyQueueNumber(v),
+          called: Boolean(call),
+          callFinished: call?.finished ?? false,
+          calledAt: call?.calledAt ?? null,
+          finishedAt: call?.finishedAt ?? null,
+          mlite,
+        };
+      }),
     );
     const [, , , , barcodeEnabled, bookingScannerEnabled, fristaBypassEnabled, autoPrintEnabled, kioskReturnSeconds, displayYoutubePlaylist, showBpjsTestAccounts] = results;
     return {

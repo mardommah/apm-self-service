@@ -1,5 +1,8 @@
+import { PATIENT_STATUS_LABELS, type PatientStatus } from "./utils";
+
 export interface PrintData {
   queueNumber: string;
+  patientStatus?: PatientStatus | null;
   serviceLabel: string;
   createdAt: Date | string;
   status: string;
@@ -29,7 +32,7 @@ export interface BpjsCheckinPrintData {
   queueNumber: string;
 }
 
-export function printGeneralLoketQueue(number: string, loket: 1 | 2): void {
+export function printGeneralLoketQueue(number: string, loket: 1 | 2, patientStatus: PatientStatus): void {
   const frame = document.createElement("iframe");
   frame.hidden = true;
   frame.title = "Cetak antrean loket";
@@ -44,7 +47,7 @@ export function printGeneralLoketQueue(number: string, loket: 1 | 2): void {
     <style>@page{size:80mm auto;margin:5mm}body{width:70mm;margin:0;text-align:center;font:14px Arial;color:#000}
     h1{font-size:16px}strong{display:block;font-size:52px;margin:16px 0}</style></head><body>
     <h1>KLINIK SYAMSINAR MAROS</h1><p>Jl. Poros Maros-Makassar No.6<br>Telp: 085315403288</p>
-    <hr><strong>${number}</strong><p>Loket Pendaftaran ${loket}</p>
+    <hr><strong>${number}</strong><p><b>${PATIENT_STATUS_LABELS[patientStatus]}</b></p><p>Loket Pendaftaran ${loket}</p>
     <p>${new Date().toLocaleString("id-ID")}</p></body></html>`);
   page.close();
   window.setTimeout(() => {
@@ -65,6 +68,8 @@ export function printBpjsCheckin(data: BpjsCheckinPrintData): void {
       "'": "&#039;",
     })[character]!);
   const rows = [
+    // Check-in needs a SIMRS booking, so it is always an existing patient.
+    ["Jenis pasien", PATIENT_STATUS_LABELS.lama],
     ["Kode booking", data.bookingCode],
     ["Nomor kartu", data.cardNumber],
     ["Nomor rujukan", data.referralNumber],
@@ -119,6 +124,7 @@ async function tryApmPrint(data: PrintData): Promise<boolean> {
         title: "Klinik Syamsinar Maros Self Service",
         queueNumber: data.queueNumber,
         service: data.serviceLabel,
+        ...(data.patientStatus ? { patientStatus: PATIENT_STATUS_LABELS[data.patientStatus] } : {}),
         date: new Date(data.createdAt).toLocaleDateString("id-ID", {
           day: "numeric",
           month: "long",
@@ -186,6 +192,7 @@ function browserPrint(data: PrintData): void {
       <div class="id">${data.queueNumber}</div>
       <div class="divider"></div>
       <div class="row"><span class="label">Layanan</span><span class="value">${data.serviceLabel}</span></div>
+      ${data.patientStatus ? `<div class="row"><span class="label">Jenis Pasien</span><span class="value">${PATIENT_STATUS_LABELS[data.patientStatus]}</span></div>` : ""}
       <div class="row"><span class="label">Tanggal</span><span class="value">${dateStr}</span></div>
       <div class="row"><span class="label">Pukul</span><span class="value">${timeStr} WITA</span></div>
       <div class="divider"></div>

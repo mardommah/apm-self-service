@@ -29,7 +29,7 @@ function VisitsPage() {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center gap-6">
           <h1 className="font-bold text-gray-900">🏥 Klinik Syamsinar Maros</h1>
-          <AdminNavLinks />
+          <AdminNavLinks isAdmin={data.admin.role === "admin"} />
         </div>
         <Button variant="outline" size="sm" onClick={handleLogout}>Keluar</Button>
       </header>

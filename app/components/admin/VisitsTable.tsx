@@ -17,6 +17,44 @@ interface VisitRow {
   servedByAdmin?: { username: string } | null;
   called?: boolean;
   callFinished?: boolean;
+  calledAt?: Date | string | null;
+  finishedAt?: Date | string | null;
+  // Pasien baru linked to mLITE: its own start/end (HH:mm); "unavailable" when SIMRS could not be read.
+  mlite?: { startTime: string; endTime: string | null } | "unavailable" | null;
+}
+
+/** App steps in order, then mLITE's start_time / end_time for tickets linked to mlite_antrian_loket. */
+function VisitTimeline({ visit }: { visit: VisitRow }) {
+  const steps: [string, Date | string | null | undefined][] = [
+    ["Daftar", visit.createdAt],
+    ["Dipanggil", visit.calledAt],
+    ["Dilayani", visit.servedAt],
+    ["Selesai", visit.finishedAt],
+  ];
+  return (
+    <div className="space-y-0.5 text-xs" title={formatDate(visit.createdAt)}>
+      <dl className="grid grid-cols-[auto_auto] gap-x-2 text-gray-500">
+        {steps.map(([label, time]) => (
+          <div key={label} className="contents">
+            <dt>{label}</dt>
+            <dd className={time ? "font-mono text-gray-800" : "text-gray-300"}>{time ? clock(time) : "–"}</dd>
+          </div>
+        ))}
+      </dl>
+      {visit.mlite && (
+        <div className="mt-1 w-fit rounded bg-blue-50 px-1.5 py-0.5 text-blue-800">
+          {visit.mlite === "unavailable" ? (
+            "mLITE: tidak terbaca"
+          ) : (
+            <>
+              mLITE <span className="font-mono">{visit.mlite.startTime}</span> →{" "}
+              <span className="font-mono">{visit.mlite.endTime ?? "belum selesai"}</span>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface Props {
@@ -96,7 +134,7 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
             <tr>
               <th className="text-left px-4 py-2.5 font-medium text-gray-500">No. Antrean</th>
               <th className="text-left px-4 py-2.5 font-medium text-gray-500">Layanan</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-500">Daftar</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500">Waktu</th>
               <th className="text-left px-4 py-2.5 font-medium text-gray-500">Status</th>
               <th className="text-right px-4 py-2.5 font-medium text-gray-500">Aksi</th>
             </tr>
@@ -117,18 +155,17 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
                     {v.service.label}
                   </span>
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap text-gray-700" title={formatDate(v.createdAt)}>
-                  {clock(v.createdAt)}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <VisitTimeline visit={v} />
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant={statusVariant[v.status] ?? "secondary"}>
                     {STATUS_LABELS[v.status] ?? v.status}
                   </Badge>
-                  {(v.servedAt || v.scannedAt) && (
+                  {/* Served time sits in the timeline; here only who served it, or the phone scan. */}
+                  {(v.servedByAdmin || (!v.servedAt && v.scannedAt)) && (
                     <div className="mt-1 text-xs text-gray-500">
-                      {v.servedAt
-                        ? `${clock(v.servedAt)}${v.servedByAdmin ? ` · ${v.servedByAdmin.username}` : ""}`
-                        : `Scan HP ${clock(v.scannedAt!)}`}
+                      {v.servedByAdmin ? `oleh ${v.servedByAdmin.username}` : `Scan HP ${clock(v.scannedAt!)}`}
                     </div>
                   )}
                 </td>

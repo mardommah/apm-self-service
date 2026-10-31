@@ -3,13 +3,14 @@ import { Link } from "@tanstack/react-router";
 const LINKS = [
   { to: "/admin/dashboard", label: "📣 Pemanggil" },
   { to: "/admin/kunjungan", label: "📋 Kunjungan & Statistik" },
+  { to: "/admin/pengaturan", label: "⚙️ Pengaturan", adminOnly: true },
 ] as const;
 
-/** Page navigation shared by the admin navbars. */
-export function AdminNavLinks() {
+/** Page navigation shared by the admin navbars; settings only for the admin role (server enforces it too). */
+export function AdminNavLinks({ isAdmin }: { isAdmin: boolean }) {
   return (
     <nav aria-label="Menu admin" className="flex items-center gap-1">
-      {LINKS.map((link) => (
+      {LINKS.filter((link) => isAdmin || !("adminOnly" in link)).map((link) => (
         <Link
           key={link.to}
           to={link.to}

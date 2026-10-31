@@ -9,13 +9,13 @@ import {
   getKioskReturnSeconds,
 } from "../functions/settings";
 import { createVisit, getAllServices } from "../functions/visits";
-import { createGeneralLoketQueue, getGeneralLoketPreview } from "../simrs";
+import { getGeneralLoketPreview } from "../simrs";
 import type { Service } from "../schema";
 import { kioskErrorMessage } from "./kiosk-errors";
 
 type Input =
   | { action: "services" }
-  | { action: "general-loket-queue"; loket: 1 | 2 }
+  | { action: "general-loket-queue"; loket: 1 | 2; patientStatus: "baru" | "lama" }
   | { action: "general-loket-preview" }
   | { action: "lookup"; bookingCode?: string; identifier: string }
   | { action: "frista-test"; cardNumber: string }
@@ -33,7 +33,6 @@ export type KioskData = {
   services: Service[];
   fristaBypassEnabled: boolean;
   bookingScannerEnabled: boolean;
-  generalPatientUrl: string | null;
   // Cached by kiosk2 so offline tickets render like online ones.
   barcodeEnabled: boolean;
   autoPrintEnabled: boolean;
@@ -59,16 +58,10 @@ export const kioskAction = createServerFn({ method: "POST" })
         getAutoPrintEnabled(),
         getKioskReturnSeconds(),
       ]);
-      let generalPatientUrl: string | null = null;
-      try {
-        const url = new URL(process.env.MLITE_GENERAL_PATIENT_URL ?? "");
-        if (url.protocol === "http:" || url.protocol === "https:") generalPatientUrl = url.toString();
-      } catch {}
       return {
         services,
         fristaBypassEnabled,
         bookingScannerEnabled,
-        generalPatientUrl,
         barcodeEnabled,
         autoPrintEnabled,
         kioskReturnSeconds,
@@ -80,7 +73,8 @@ export const kioskAction = createServerFn({ method: "POST" })
         const createdAt = Math.min(Date.parse(visit.createdAt), Date.now());
         const valid =
           /^[0-9A-HJKMNP-TV-Z]{26}$/.test(visit.id) &&
-          /^O\d{3,}$/.test(visit.queueNumber) &&
+          // "O1-001"; plain "O001" from outboxes queued before device codes.
+          /^O(\d{1,2}-)?\d{3,4}$/.test(visit.queueNumber) &&
           Date.now() - createdAt < 7 * 86_400_000;
         try {
           if (valid) {
@@ -93,20 +87,27 @@ export const kioskAction = createServerFn({ method: "POST" })
             console.warn("Offline visit dropped (invalid):", visit.id);
           }
         } catch (error) {
-          // DB errors propagate so the kiosk retries; an unknown service never succeeds, so drop it.
-          if (!(error instanceof Error && error.message.startsWith("Service '"))) throw error;
-          console.warn("Offline visit dropped (service not found):", visit.id);
+          // DB errors propagate so the kiosk retries; an unknown service or a number another visit already
+          // holds that day never succeeds, so drop it instead of blocking the outbox.
+          const message = error instanceof Error ? error.message : "";
+          if (!message.startsWith("Service '") && message !== "QUEUE_NUMBER_TAKEN") throw error;
+          console.warn(`Offline visit dropped (${message}):`, visit.id, visit.queueNumber);
         }
         done.push(visit.id);
       }
       return { done };
     }
     if (data.action === "general-loket-queue") {
-      if (data.loket !== 1 && data.loket !== 2) {
+      if ((data.loket !== 1 && data.loket !== 2) || (data.patientStatus !== "baru" && data.patientStatus !== "lama")) {
         return { ok: false as const, message: "Loket tidak valid." };
       }
       try {
-        return { ok: true as const, queue: await createGeneralLoketQueue(data.loket) };
+        // Saved as an app visit too, so the admin caller sees it: Loket 1 → Umum card (mLITE Loket), Loket 2 → CS card (mLITE CS).
+        const visit = await createVisit(data.loket === 1 ? "poli_umum" : "customer_service", undefined, undefined, {
+          mliteQueueType: data.loket,
+          patientStatus: data.patientStatus,
+        });
+        return { ok: true as const, queue: { number: visit.queueNumber, loket: data.loket } };
       } catch {
         return { ok: false as const, message: "Nomor antrean loket belum dapat dibuat. Silakan coba lagi." };
       }
@@ -148,7 +149,8 @@ export const kioskAction = createServerFn({ method: "POST" })
       data.destinationServiceCode && data.patientStatus
         ? { destinationServiceCode: data.destinationServiceCode, patientStatus: data.patientStatus }
         : undefined;
-    const result = await createVisit(data.serviceCode, registration, undefined, { skipMlite: data.skipMlite === true });
+    const patientStatus = data.patientStatus === "baru" || data.patientStatus === "lama" ? data.patientStatus : undefined;
+    const result = await createVisit(data.serviceCode, registration, undefined, { skipMlite: data.skipMlite === true, patientStatus });
     if (registration) {
       setCookie("bpjs_kiosk_visit_id", result.id, {
         httpOnly: true,

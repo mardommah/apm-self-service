@@ -49,3 +49,10 @@ export const STATUS_LABELS: Record<string, string> = {
   served: "Dilayani",
   revoked: "Dibatalkan",
 };
+
+export type PatientStatus = "baru" | "lama";
+
+export const PATIENT_STATUS_LABELS: Record<PatientStatus, string> = {
+  baru: "Pasien Baru",
+  lama: "Pasien Lama",
+};
