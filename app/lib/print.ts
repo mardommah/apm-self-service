@@ -33,83 +33,35 @@ export interface BpjsCheckinPrintData {
 }
 
 export function printGeneralLoketQueue(number: string, loket: 1 | 2, patientStatus: PatientStatus): void {
-  const frame = document.createElement("iframe");
-  frame.hidden = true;
-  frame.title = "Cetak antrean loket";
-  document.body.appendChild(frame);
-  const page = frame.contentDocument;
-  if (!page) {
-    frame.remove();
-    throw new Error("PRINT_UNAVAILABLE");
-  }
-  page.open();
-  page.write(`<!doctype html><html lang="id"><head><meta charset="UTF-8"><title>Antrean Loket</title>
-    <style>@page{size:80mm auto;margin:5mm}body{width:70mm;margin:0;text-align:center;font:14px Arial;color:#000}
-    h1{font-size:16px}strong{display:block;font-size:52px;margin:16px 0}</style></head><body>
-    <h1>KLINIK SYAMSINAR MAROS</h1><p>Jl. Poros Maros-Makassar No.6<br>Telp: 085315403288</p>
-    <hr><strong>${number}</strong><p><b>${PATIENT_STATUS_LABELS[patientStatus]}</b></p><p>Loket Pendaftaran ${loket}</p>
-    <p>${new Date().toLocaleString("id-ID")}</p></body></html>`);
-  page.close();
-  window.setTimeout(() => {
-    frame.contentWindow?.focus();
-    frame.contentWindow?.print();
-    window.setTimeout(() => frame.remove(), 1_000);
-  }, 200);
+  printReceipt({
+    title: "Nomor Antrean",
+    queueNumber: number,
+    rows: [
+      ["Layanan", `Loket Pendaftaran ${loket}`],
+      ["Jenis pasien", PATIENT_STATUS_LABELS[patientStatus]],
+      ["Waktu", receiptTime(new Date())],
+    ],
+    note: "Simpan struk & tunggu nomor dipanggil.",
+  });
 }
 
 /** Print proof only after the Frista agent confirms the process has finished. */
 export function printBpjsCheckin(data: BpjsCheckinPrintData): void {
-  const escapeHtml = (value: string) =>
-    value.replace(/[&<>"']/g, (character) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;",
-    })[character]!);
-  const rows = [
-    // Check-in needs a SIMRS booking, so it is always an existing patient.
-    ["Jenis pasien", PATIENT_STATUS_LABELS.lama],
-    ["Kode booking", data.bookingCode],
-    ["Nomor kartu", data.cardNumber],
-    ["Nomor rujukan", data.referralNumber],
-    ["Nomor RM", data.medicalRecordNumber],
-    ["Poli tujuan", data.clinicName],
-    ["Nomor antrean", data.queueNumber],
-  ];
-  const frame = document.createElement("iframe");
-  frame.hidden = true;
-  frame.setAttribute("title", "Cetak bukti check-in BPJS");
-  document.body.appendChild(frame);
-  const documentToPrint = frame.contentDocument;
-  if (!documentToPrint) {
-    frame.remove();
-    throw new Error("PRINT_UNAVAILABLE");
-  }
-  documentToPrint.open();
-  documentToPrint.write(`<!doctype html>
-    <html lang="id"><head><meta charset="UTF-8"><title>Bukti Check-in BPJS</title>
-    <style>
-      @page { size: 80mm auto; margin: 5mm; }
-      body { width: 70mm; margin: 0; font: 12px monospace; color: #000; }
-      h1, p { margin: 0; text-align: center; }
-      h1 { font-size: 16px; }
-      .divider { border-top: 1px dashed #000; margin: 8px 0; }
-      .row { margin: 6px 0; }
-      .label { display: block; color: #555; }
-      .value { display: block; font-weight: bold; overflow-wrap: anywhere; }
-      .queue { font-size: 20px; text-align: center; }
-    </style></head><body>
-      <h1>Klinik Syamsinar Maros</h1><p>Bukti Check-in BPJS</p><div class="divider"></div>
-      ${rows.map(([label, value], index) => `<div class="row${index === rows.length - 1 ? " queue" : ""}"><span class="label">${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span></div>`).join("")}
-      <div class="divider"></div><p>Proses Frista selesai</p>
-    </body></html>`);
-  documentToPrint.close();
-  window.setTimeout(() => {
-    frame.contentWindow?.focus();
-    frame.contentWindow?.print();
-    window.setTimeout(() => frame.remove(), 1_000);
-  }, 200);
+  printReceipt({
+    title: "Bukti Check-in BPJS",
+    queueNumber: data.queueNumber,
+    rows: [
+      // Check-in needs a SIMRS booking, so it is always an existing patient.
+      ["Jenis pasien", PATIENT_STATUS_LABELS.lama],
+      ["Poli tujuan", data.clinicName],
+      ["Kode booking", data.bookingCode],
+      ["No. kartu", data.cardNumber],
+      ["No. rujukan", data.referralNumber],
+      ["No. RM", data.medicalRecordNumber],
+      ["Waktu", receiptTime(new Date())],
+    ],
+    note: "Proses Frista selesai.",
+  });
 }
 
 async function tryApmPrint(data: PrintData): Promise<boolean> {
@@ -144,66 +96,80 @@ async function tryApmPrint(data: PrintData): Promise<boolean> {
 }
 
 function browserPrint(data: PrintData): void {
-  const date = new Date(data.createdAt);
-  const dateStr = date.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-  const timeStr = date.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  printReceipt(ticketReceipt(data));
+}
 
-  const printWindow = window.open("", "_blank", "width=400,height=600");
-  if (!printWindow) return;
+export type Receipt = { title: string; queueNumber: string; rows: [string, string][]; note: string };
 
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html lang="id">
-    <head>
-      <meta charset="UTF-8" />
-      <title>Tiket Kunjungan</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-          font-family: monospace;
-          width: 80mm;
-          padding: 8mm;
-          font-size: 12px;
-        }
-        .center { text-align: center; }
-        .title { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
-        .divider { border-top: 1px dashed #000; margin: 8px 0; }
-        .row { display: flex; justify-content: space-between; margin: 4px 0; }
-        .label { color: #666; }
-        .value { font-weight: bold; }
-        .id { font-size: 14px; font-weight: bold; letter-spacing: 2px; text-align: center; margin: 8px 0; }
-        .footer { font-size: 10px; color: #999; text-align: center; margin-top: 8px; }
-      </style>
-    </head>
-    <body>
-      <div class="center">
-        <div class="title">Klinik Syamsinar Maros</div>
-        <div>Tiket Kunjungan</div>
-      </div>
-      <div class="divider"></div>
-      <div class="label center">No. Antrean</div>
-      <div class="id">${data.queueNumber}</div>
-      <div class="divider"></div>
-      <div class="row"><span class="label">Layanan</span><span class="value">${data.serviceLabel}</span></div>
-      ${data.patientStatus ? `<div class="row"><span class="label">Jenis Pasien</span><span class="value">${PATIENT_STATUS_LABELS[data.patientStatus]}</span></div>` : ""}
-      <div class="row"><span class="label">Tanggal</span><span class="value">${dateStr}</span></div>
-      <div class="row"><span class="label">Pukul</span><span class="value">${timeStr} WITA</span></div>
-      <div class="divider"></div>
-      <div class="footer">Simpan tiket & perlihatkan kepada petugas.</div>
-    </body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => {
-    printWindow.print();
-    printWindow.close();
-  }, 300);
+/** Kiosk ticket receipt; also rendered as the on-screen preview (QRDisplay without QR). */
+export function ticketReceipt(data: Pick<PrintData, "queueNumber" | "serviceLabel" | "patientStatus" | "createdAt">): Receipt {
+  return {
+    title: "Nomor Antrean",
+    queueNumber: data.queueNumber,
+    rows: [
+      ["Layanan", data.serviceLabel],
+      ...(data.patientStatus ? [["Jenis pasien", PATIENT_STATUS_LABELS[data.patientStatus]] as [string, string]] : []),
+      ["Waktu", receiptTime(new Date(data.createdAt))],
+    ],
+    note: "Simpan struk & tunggu nomor dipanggil.",
+  };
+}
+
+/** "31 Okt 2026 08.21 WITA" */
+function receiptTime(date: Date) {
+  const day = date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  const time = date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  return `${day} ${time} WITA`;
+}
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]!);
+
+// One layout for every receipt (80 mm thermal roll). Paper saving: no page margin, 11px text,
+// tight line height, label + value on one line, a single short footer line.
+const RECEIPT_CSS = `
+  @page { size: 80mm auto; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 72mm; margin: 0 auto; padding: 2mm 0 3mm; font: 11px/1.25 monospace; color: #000; }
+  .center { text-align: center; }
+  .clinic { font-size: 13px; font-weight: bold; }
+  .divider { border-top: 1px dashed #000; margin: 3px 0; }
+  .title { font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+  .number { font-size: 34px; font-weight: bold; line-height: 1.05; }
+  .row { display: flex; justify-content: space-between; gap: 6px; }
+  .row b { text-align: right; overflow-wrap: anywhere; }
+`;
+
+/** Shared receipt HTML: clinic header, title, big queue number, label/value rows, one footer note. */
+export function receiptHtml(receipt: Receipt) {
+  return `<!doctype html><html lang="id"><head><meta charset="UTF-8"><title>${escapeHtml(receipt.title)}</title>
+    <style>${RECEIPT_CSS}</style></head><body>
+    <div class="center"><div class="clinic">KLINIK SYAMSINAR MAROS</div><div>Jl. Poros Maros-Makassar No.6<br>Telp. 085315403288</div></div>
+    <div class="divider"></div>
+    <div class="center"><div class="title">${escapeHtml(receipt.title)}</div><div class="number">${escapeHtml(receipt.queueNumber)}</div></div>
+    <div class="divider"></div>
+    ${receipt.rows.map(([label, value]) => `<div class="row"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join("")}
+    <div class="divider"></div>
+    <div class="center">${escapeHtml(receipt.note)}</div>
+    </body></html>`;
+}
+
+function printReceipt(receipt: Receipt) {
+  const frame = document.createElement("iframe");
+  frame.hidden = true;
+  frame.title = receipt.title;
+  document.body.appendChild(frame);
+  const page = frame.contentDocument;
+  if (!page) {
+    frame.remove();
+    throw new Error("PRINT_UNAVAILABLE");
+  }
+  page.open();
+  page.write(receiptHtml(receipt));
+  page.close();
+  window.setTimeout(() => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    window.setTimeout(() => frame.remove(), 1_000);
+  }, 200);
 }

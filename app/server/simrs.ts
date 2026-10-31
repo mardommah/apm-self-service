@@ -48,12 +48,14 @@ export function getSimrsPool() {
   return pool;
 }
 
-export async function getGeneralLoketPreview() {
+/** Next A/B numbers as createGeneralLoketQueue will issue them (`min*`: app-issued A/B, see there). */
+export async function getGeneralLoketPreview(minLoket1 = 0, minLoket2 = 0) {
   const [rows] = await getSimrsPool().query<RowDataPacket[]>(
     `SELECT DATE_FORMAT(CURRENT_DATE(), '%Y-%m-%d') AS date,
-      COALESCE(MAX(CASE WHEN type = 'Loket' THEN CAST(noantrian AS UNSIGNED) END), 0) + 1 AS loket1,
-      COALESCE(MAX(CASE WHEN type = 'CS' THEN CAST(noantrian AS UNSIGNED) END), 0) + 1 AS loket2
+      GREATEST(COALESCE(MAX(CASE WHEN type = 'Loket' THEN CAST(noantrian AS UNSIGNED) END), 0), ?) + 1 AS loket1,
+      GREATEST(COALESCE(MAX(CASE WHEN type = 'CS' THEN CAST(noantrian AS UNSIGNED) END), 0), ?) + 1 AS loket2
     FROM mlite_antrian_loket WHERE postdate = CURRENT_DATE()`,
+    [minLoket1, minLoket2],
   );
   const row = rows[0];
   const loket1 = Number(row?.loket1);
@@ -65,7 +67,8 @@ export async function getGeneralLoketPreview() {
   ] };
 }
 
-export async function createGeneralLoketQueue(loket: 1 | 2) {
+/** `minNumber`: the next number is above it too (A/B the app issued itself while mLITE was down). */
+export async function createGeneralLoketQueue(loket: 1 | 2, minNumber = 0) {
   const connection = await getSimrsPool().getConnection();
   let locked = false;
   try {
@@ -74,8 +77,8 @@ export async function createGeneralLoketQueue(loket: 1 | 2) {
     if (locks[0]?.acquired !== 1) throw new Error("LOKET_QUEUE_BUSY");
     locked = true;
     const [rows] = await connection.query<RowDataPacket[]>(
-      "SELECT COALESCE(MAX(CAST(noantrian AS UNSIGNED)), 0) + 1 AS nextNumber FROM mlite_antrian_loket WHERE type = ? AND postdate = CURRENT_DATE()",
-      [type],
+      "SELECT GREATEST(COALESCE(MAX(CAST(noantrian AS UNSIGNED)), 0), ?) + 1 AS nextNumber FROM mlite_antrian_loket WHERE type = ? AND postdate = CURRENT_DATE()",
+      [minNumber, type],
     );
     const number = Number(rows[0]?.nextNumber);
     if (!Number.isSafeInteger(number) || number < 1) throw new Error("LOKET_QUEUE_FAILED");

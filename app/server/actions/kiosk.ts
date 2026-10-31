@@ -8,7 +8,7 @@ import {
   getFristaBypassEnabled,
   getKioskReturnSeconds,
 } from "../functions/settings";
-import { createVisit, getAllServices } from "../functions/visits";
+import { createVisit, getAllServices, lastAppQueueNumber } from "../functions/visits";
 import { getGeneralLoketPreview } from "../simrs";
 import type { Service } from "../schema";
 import { kioskErrorMessage } from "./kiosk-errors";
@@ -114,7 +114,9 @@ export const kioskAction = createServerFn({ method: "POST" })
     }
     if (data.action === "general-loket-preview") {
       try {
-        return { ok: true as const, preview: await getGeneralLoketPreview() };
+        const now = new Date();
+        const [lastA, lastB] = await Promise.all([lastAppQueueNumber("A", now), lastAppQueueNumber("B", now)]);
+        return { ok: true as const, preview: await getGeneralLoketPreview(lastA, lastB) };
       } catch {
         return { ok: false as const, message: "Nomor antrian loket belum dapat dimuat." };
       }

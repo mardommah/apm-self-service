@@ -257,15 +257,15 @@ function SettingsPage() {
           <section className="mt-4 rounded-2xl bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
               <div>
-                <p className="font-medium text-gray-800">Fitur barcode / QR</p>
+                <p className="font-medium text-gray-800">Tampilkan QR scan antrian pasien</p>
                 <p className="text-sm text-gray-500">
-                  Jika nonaktif, kiosk hanya menampilkan dan mencetak karcis antrean.
+                  Jika nonaktif, halaman tiket kiosk menampilkan detail antrean dan pratinjau struk (tanpa QR), dan halaman scan admin ditutup.
                 </p>
               </div>
               <SettingSwitch
                 checked={data.barcodeEnabled}
                 disabled={savingBarcode}
-                label="Fitur barcode / QR"
+                label="Tampilkan QR scan antrian pasien"
                 onChange={handleBarcodeSetting}
               />
             </div>

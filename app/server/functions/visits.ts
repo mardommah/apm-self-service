@@ -67,7 +67,8 @@ export async function setServiceQueuePrefix(code: string, queuePrefix: QueuePref
 
 async function createMliteNote(queueType: 1 | 2) {
   try {
-    const queue = await createGeneralLoketQueue(queueType);
+    // Continue after A/B numbers the app issued itself while mLITE was down, so the two never collide.
+    const queue = await createGeneralLoketQueue(queueType, await lastAppQueueNumber(queueType === 1 ? "A" : "B", new Date()));
     return `${MLITE_NOTE_PREFIX}${queue.kd}:${queue.number}`;
   } catch (error) {
     // SIMRS down must not block the kiosk: the ticket falls back to the app's own daily number.
@@ -117,20 +118,24 @@ export async function createVisit(
   const queueType = options?.mliteQueueType ?? (prefix && (prefix === "A" ? 1 : 2));
   const patientStatus = registration?.patientStatus ?? options?.patientStatus ?? null;
   // Only new patients (BPJS & general) go to mLITE for registration; every other ticket keeps the app's own number.
-  const mliteNote =
-    !offline && !options?.skipMlite && patientStatus === "baru" && queueType ? await createMliteNote(queueType) : null;
+  const wantsMlite = !offline && !options?.skipMlite && patientStatus === "baru" && queueType;
+  const mliteNote = wantsMlite ? await createMliteNote(queueType) : null;
   const createdAt = offline?.createdAt ?? new Date();
   const notes = offline ? OFFLINE_NOTE_PREFIX + offline.queueNumber : mliteNote;
   const values = { id, serviceId: service.id, destinationServiceId, patientStatus, deviceId: null, status: "waiting" as const, createdAt, notes };
   const fixedNumber = offline?.queueNumber ?? parseMliteNote(mliteNote)?.queueNumber;
   const queueNumber = fixedNumber
     ? (await insertWithFixedQueueNumber({ ...values, queueNumber: fixedNumber }), fixedNumber)
-    : await insertWithAppQueueNumber(values, appQueueLetter(service.code, patientStatus));
+    : await insertWithAppQueueNumber(
+        values,
+        // mLITE failed: still the A/B the patient picked (own counter, continued by the next mLITE number).
+        wantsMlite ? (queueType === 1 ? "A" : "B") : appQueueLetter(service.code, patientStatus),
+      );
 
   return { id, service, createdAt, notes, queueNumber };
 }
 
-// App tickets get a letter per service and their own daily counter; A/B stay reserved for mLITE, O for offline kiosk2.
+// App tickets get a letter per service and their own daily counter; A/B belong to the mLITE queues (also their fallback when mLITE fails), O to offline kiosk2.
 const APP_QUEUE_LETTERS: Record<string, string> = {
   registrasi: "C",
   poli_umum: "D",
@@ -145,16 +150,23 @@ function appQueueLetter(serviceCode: string, patientStatus: "baru" | "lama" | nu
   return APP_QUEUE_LETTERS[serviceCode] ?? "P";
 }
 
+/** Highest number already issued today for `letter` (0 if none); A/B include the mLITE tickets. */
+export async function lastAppQueueNumber(letter: string, day: Date) {
+  const dayStart = new Date(day);
+  dayStart.setHours(0, 0, 0, 0);
+  const [row] = await getDb()
+    .select({ last: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${visits.queueNumber}, 2) AS UNSIGNED)), 0)` })
+    .from(visits)
+    .where(and(gte(visits.createdAt, dayStart), like(visits.queueNumber, `${letter}%`)));
+  return Number(row?.last ?? 0);
+}
+
 /** Inserts the visit with the next "<letter>NNN" of its day; a named lock keeps concurrent kiosks from sharing a number. */
 async function insertWithAppQueueNumber(values: typeof visits.$inferInsert, letter: string) {
   const dayStart = new Date(values.createdAt!);
   dayStart.setHours(0, 0, 0, 0);
   return withNamedLock(`apm_queue_${letter}`, async () => {
-    const [row] = await getDb()
-      .select({ last: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${visits.queueNumber}, 2) AS UNSIGNED)), 0)` })
-      .from(visits)
-      .where(and(gte(visits.createdAt, dayStart), like(visits.queueNumber, `${letter}%`)));
-    const queueNumber = letter + String(Number(row?.last ?? 0) + 1).padStart(3, "0");
+    const queueNumber = letter + String((await lastAppQueueNumber(letter, dayStart)) + 1).padStart(3, "0");
     await getDb().insert(visits).values({ ...values, queueNumber });
     return queueNumber;
   });
