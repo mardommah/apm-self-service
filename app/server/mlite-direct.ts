@@ -1,8 +1,9 @@
-import type { Pool, PoolConnection } from "mysql2/promise";
+import type { Pool, PoolConnection, ResultSetHeader } from "mysql2/promise";
 
-// Staging only (ENV=staging): there is no mLITE web app on the staging DB, so these run the same
-// SQL as mLITE plugins/anjungan (Site.php ajax simpanloket/simpancs, getSetPanggil, getSimpanNoRM;
-// Admin.php show=panggil_loket/panggil_cs) directly against SIMRS_DB_*. Production keeps the HTTP endpoints.
+// Same SQL as mLITE plugins/anjungan (Site.php ajax simpanloket/simpancs, getSetPanggil, getSimpanNoRM;
+// Admin.php show=panggil_loket/panggil_cs), run directly against SIMRS_DB_*.
+// New queue numbers (directInsertQueue) always go this way. Calls / Simpan RM use it only on ENV=staging
+// (no mLITE web app there); production keeps the HTTP endpoints for those.
 export const MLITE_DIRECT_DB = process.env.ENV === "staging";
 
 export type MliteType = "loket" | "cs";
@@ -10,11 +11,13 @@ const TABLE_TYPE: Record<MliteType, string> = { loket: "Loket", cs: "CS" };
 
 type Db = Pool | PoolConnection;
 
+/** Returns the new row's kd. */
 export async function directInsertQueue(db: Db, type: MliteType, noantrian: number) {
-  await db.query(
+  const [result] = await db.query<ResultSetHeader>(
     "INSERT INTO mlite_antrian_loket (type, noantrian, postdate, start_time, end_time) VALUES (?, ?, CURRENT_DATE(), CURRENT_TIME(), '00:00:00')",
     [TABLE_TYPE[type], String(noantrian)],
   );
+  return result.insertId;
 }
 
 async function setSetting(db: Db, field: string, value: string) {
