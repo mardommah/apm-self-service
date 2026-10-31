@@ -140,3 +140,78 @@ export async function findTodaySimrsBooking(identifier: string, bookingCode?: st
     status: booking.status,
   } satisfies SimrsBooking;
 }
+
+export type SimrsPatientSearch = { name?: string; birthDate?: string; serviceDate?: string };
+
+export type SimrsPatient = {
+  noRkmMedis: string;
+  name: string;
+  birthDate: string | null;
+  nik: string;
+  address: string;
+  visitCount: number;
+  lastVisit: string | null;
+};
+
+type SimrsPatientRow = RowDataPacket & {
+  no_rkm_medis: string;
+  nm_pasien: string;
+  tgl_lahir: string | null;
+  no_ktp: string | null;
+  alamat: string | null;
+  jml_kunjungan: number | string;
+  kunjungan_terakhir: string | null;
+};
+
+export const SIMRS_PATIENT_SEARCH_LIMIT = 50;
+
+/** Read-only lookup in SIMRS `pasien` (+ `reg_periksa` counts). Every filter given must match. */
+export async function searchSimrsPatients({ name, birthDate, serviceDate }: SimrsPatientSearch) {
+  const where: string[] = [];
+  const params: string[] = [];
+  if (name) {
+    // Name prefix (index-friendly, no leading %); LIKE wildcards typed by the user are literal.
+    where.push("p.nm_pasien LIKE ?");
+    params.push(`${name.replace(/[\\%_]/g, "\\$&")}%`);
+  }
+  if (birthDate) {
+    where.push("p.tgl_lahir = ?");
+    params.push(birthDate);
+  }
+  if (serviceDate) {
+    where.push(
+      "EXISTS (SELECT 1 FROM reg_periksa r WHERE r.no_rkm_medis = p.no_rkm_medis AND r.tgl_registrasi = ? AND IFNULL(r.stts, '') <> 'Batal')",
+    );
+    params.push(serviceDate);
+  }
+  if (where.length === 0) throw new Error("SEARCH_EMPTY");
+  let rows: SimrsPatientRow[];
+  try {
+    [rows] = await getSimrsPool().execute<SimrsPatientRow[]>(
+      `SELECT p.no_rkm_medis, p.nm_pasien,
+        DATE_FORMAT(p.tgl_lahir, '%Y-%m-%d') AS tgl_lahir, p.no_ktp, p.alamat,
+        (SELECT COUNT(*) FROM reg_periksa r
+          WHERE r.no_rkm_medis = p.no_rkm_medis AND IFNULL(r.stts, '') <> 'Batal') AS jml_kunjungan,
+        (SELECT DATE_FORMAT(MAX(r.tgl_registrasi), '%Y-%m-%d') FROM reg_periksa r
+          WHERE r.no_rkm_medis = p.no_rkm_medis AND IFNULL(r.stts, '') <> 'Batal') AS kunjungan_terakhir
+      FROM pasien p
+      WHERE ${where.join(" AND ")}
+      ORDER BY p.nm_pasien
+      LIMIT ${SIMRS_PATIENT_SEARCH_LIMIT}`,
+      params,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === "SIMRS_NOT_CONFIGURED") throw error;
+    console.error("[simrs] patient search failed", error);
+    throw new Error("SIMRS_UNAVAILABLE");
+  }
+  return rows.map((row) => ({
+    noRkmMedis: row.no_rkm_medis,
+    name: row.nm_pasien,
+    birthDate: row.tgl_lahir,
+    nik: row.no_ktp ?? "",
+    address: row.alamat ?? "",
+    visitCount: Number(row.jml_kunjungan),
+    lastVisit: row.kunjungan_terakhir,
+  }) satisfies SimrsPatient);
+}

@@ -18,6 +18,7 @@ import { Route as KioskIndexImport } from './routes/kiosk/index'
 import { Route as VisitVisitIdImport } from './routes/visit.$visitId'
 import { Route as AdminScanImport } from './routes/admin/scan'
 import { Route as AdminPengaturanImport } from './routes/admin/pengaturan'
+import { Route as AdminPasienImport } from './routes/admin/pasien'
 import { Route as AdminLoginImport } from './routes/admin/login'
 import { Route as AdminKunjunganImport } from './routes/admin/kunjungan'
 import { Route as AdminDashboardImport } from './routes/admin/dashboard'
@@ -64,6 +65,12 @@ const AdminScanRoute = AdminScanImport.update({
 const AdminPengaturanRoute = AdminPengaturanImport.update({
   id: '/admin/pengaturan',
   path: '/admin/pengaturan',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AdminPasienRoute = AdminPasienImport.update({
+  id: '/admin/pasien',
+  path: '/admin/pasien',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -137,6 +144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginImport
       parentRoute: typeof rootRoute
     }
+    '/admin/pasien': {
+      id: '/admin/pasien'
+      path: '/admin/pasien'
+      fullPath: '/admin/pasien'
+      preLoaderRoute: typeof AdminPasienImport
+      parentRoute: typeof rootRoute
+    }
     '/admin/pengaturan': {
       id: '/admin/pengaturan'
       path: '/admin/pengaturan'
@@ -184,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/pasien': typeof AdminPasienRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/scan': typeof AdminScanRoute
   '/visit/$visitId': typeof VisitVisitIdRoute
@@ -198,6 +213,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/pasien': typeof AdminPasienRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/scan': typeof AdminScanRoute
   '/visit/$visitId': typeof VisitVisitIdRoute
@@ -213,6 +229,7 @@ export interface FileRoutesById {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/pasien': typeof AdminPasienRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/scan': typeof AdminScanRoute
   '/visit/$visitId': typeof VisitVisitIdRoute
@@ -229,6 +246,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/kunjungan'
     | '/admin/login'
+    | '/admin/pasien'
     | '/admin/pengaturan'
     | '/admin/scan'
     | '/visit/$visitId'
@@ -242,6 +260,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/kunjungan'
     | '/admin/login'
+    | '/admin/pasien'
     | '/admin/pengaturan'
     | '/admin/scan'
     | '/visit/$visitId'
@@ -255,6 +274,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/kunjungan'
     | '/admin/login'
+    | '/admin/pasien'
     | '/admin/pengaturan'
     | '/admin/scan'
     | '/visit/$visitId'
@@ -270,6 +290,7 @@ export interface RootRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminKunjunganRoute: typeof AdminKunjunganRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminPasienRoute: typeof AdminPasienRoute
   AdminPengaturanRoute: typeof AdminPengaturanRoute
   AdminScanRoute: typeof AdminScanRoute
   VisitVisitIdRoute: typeof VisitVisitIdRoute
@@ -284,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDashboardRoute: AdminDashboardRoute,
   AdminKunjunganRoute: AdminKunjunganRoute,
   AdminLoginRoute: AdminLoginRoute,
+  AdminPasienRoute: AdminPasienRoute,
   AdminPengaturanRoute: AdminPengaturanRoute,
   AdminScanRoute: AdminScanRoute,
   VisitVisitIdRoute: VisitVisitIdRoute,
@@ -307,6 +329,7 @@ export const routeTree = rootRoute
         "/admin/dashboard",
         "/admin/kunjungan",
         "/admin/login",
+        "/admin/pasien",
         "/admin/pengaturan",
         "/admin/scan",
         "/visit/$visitId",
@@ -331,6 +354,9 @@ export const routeTree = rootRoute
     },
     "/admin/login": {
       "filePath": "admin/login.tsx"
+    },
+    "/admin/pasien": {
+      "filePath": "admin/pasien.tsx"
     },
     "/admin/pengaturan": {
       "filePath": "admin/pengaturan.tsx"
