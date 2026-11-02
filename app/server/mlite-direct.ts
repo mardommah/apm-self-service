@@ -45,6 +45,11 @@ export async function directSetPanggil(db: Db, type: MliteType, noantrian: strin
   );
 }
 
+/** Close one number by kd (the app's "Selesai dilayani"); an end_time already set is kept. */
+export async function directFinishQueue(db: Db, kd: number) {
+  await db.query("UPDATE mlite_antrian_loket SET end_time = CURRENT_TIME() WHERE kd = ? AND end_time = '00:00:00'", [kd]);
+}
+
 /** getSimpanNoRM: RM must be exactly 6 characters. */
 export async function directSimpanNoRm(db: Db, type: MliteType, noantrian: string, noRkmMedis: string) {
   if (noRkmMedis.length !== 6) throw new Error("Gagal! Nomor Rekam Medis Tidak Valid");

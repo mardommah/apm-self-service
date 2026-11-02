@@ -3,6 +3,8 @@ import { finishQueueCall } from "../functions/call-finish";
 import { createQueueCall, findVisitById, listCallsAfter, listLoketCalls } from "../functions/calls";
 import { getDisplayYoutubePlaylist, getPrayerSettings } from "../functions/settings";
 import { getDisplayTest } from "../functions/display-test";
+import { parseMliteNote } from "../functions/visits";
+import { finishMliteQueue } from "../mlite-loket";
 import { requireAdminToken } from "./admin-auth";
 
 export const callVisitAction = createServerFn({ method: "POST" })
@@ -22,7 +24,16 @@ export const finishVisitAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     requireAdminToken(data.token);
     await finishQueueCall(data.visitId);
-    return { ok: true };
+    const mlite = parseMliteNote((await findVisitById(data.visitId))?.notes);
+    if (!mlite) return { ok: true };
+    const mliteOk = await finishMliteQueue(mlite.kd).then(
+      () => true,
+      (error) => {
+        console.error("[finishVisitAction] mLITE end_time not updated", error);
+        return false;
+      },
+    );
+    return { ok: true, mliteOk };
   });
 
 /** Public, read-only feed for the waiting-room TV. Without `afterId` it returns state only, no calls to announce. */

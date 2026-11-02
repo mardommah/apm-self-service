@@ -17,6 +17,9 @@ const ERRORS: Record<string, string> = {
   LOCK_BUSY: "Loket lain sedang memanggil. Coba lagi.",
 };
 
+/** Windows/OS notification via the browser; undefined outside a secure context (HTTPS/localhost) or during SSR. */
+const osNotification = () => (typeof window !== "undefined" && "Notification" in window ? Notification : undefined);
+
 /** Pemanggil Pasien BPJS & Umum (mLITE Loket, A) dan Customer Service (mLITE CS, B), mirip halaman pemanggil mLITE. */
 export function LoketCaller({ token, loket, onChange }: { token: string; loket: number; onChange: () => void }) {
   const [cards, setCards] = useState<LoketCallerState>([]);
@@ -26,6 +29,8 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
   const [toasts, setToasts] = useState<{ id: string; text: string }[]>([]);
   // Newest waiting ticket per service seen so far; undefined until the first poll seeds it.
   const seenNewest = useRef<Record<string, string | null> | undefined>(undefined);
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | "unsupported">("default");
+  useEffect(() => setNotifPerm(osNotification()?.permission ?? "unsupported"), []);
 
   const load = useCallback(
     () =>
@@ -34,8 +39,18 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
           const seen = seenNewest.current;
           if (seen) {
             const arrived = next.filter((c) => c.newest && c.newest.id !== seen[c.serviceCode]);
-            if (arrived.length)
-              setToasts((t) => [...t, ...arrived.map((c) => ({ id: c.newest!.id, text: `${c.label}: ${c.newest!.queueNumber}` }))]);
+            const items = arrived.map((c) => ({ id: c.newest!.id, text: `${c.label}: ${c.newest!.queueNumber}` }));
+            if (items.length) setToasts((t) => [...t, ...items]);
+            const N = osNotification();
+            // OS notification only when the admin is not looking at this tab; the in-page toast covers the rest.
+            if (N?.permission === "granted" && (document.hidden || !document.hasFocus()))
+              for (const item of items) {
+                const n = new N("🔔 Antrean baru masuk", { body: item.text, tag: item.id });
+                n.onclick = () => {
+                  window.focus();
+                  n.close();
+                };
+              }
           }
           seenNewest.current = Object.fromEntries(next.map((c) => [c.serviceCode, c.newest?.id ?? null]));
           setCards(next);
@@ -45,7 +60,8 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
   );
   useEffect(() => {
     load();
-    const id = setInterval(() => !document.hidden && load(), 5_000);
+    // Hidden tab keeps polling only when OS notifications are on (browser throttles it to ~1×/min).
+    const id = setInterval(() => (!document.hidden || osNotification()?.permission === "granted") && load(), 5_000);
     document.addEventListener("visibilitychange", load);
     return () => {
       clearInterval(id);
@@ -58,7 +74,7 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
     setMessage("");
     try {
       const result = (await action()) as { mliteOk?: boolean } | undefined;
-      if (result?.mliteOk === false) setMessage("Dipanggil di display, tapi status di mLITE gagal diperbarui.");
+      if (result?.mliteOk === false) setMessage("Tersimpan di aplikasi, tapi status di mLITE gagal diperbarui.");
       await load();
       onChange();
       return true;
@@ -74,7 +90,24 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
   return (
     <Toast.Provider duration={6000} label="Notifikasi antrean">
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-gray-800">Pemanggil Loket {loket}</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-gray-800">Pemanggil Loket {loket}</h2>
+          {notifPerm === "default" && (
+            <button
+              type="button"
+              onClick={() => osNotification()?.requestPermission().then(setNotifPerm)}
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-sm text-amber-800 hover:bg-amber-100"
+            >
+              🔔 Aktifkan notifikasi Windows
+            </button>
+          )}
+          {notifPerm === "denied" && (
+            <span className="text-xs text-gray-500">Notifikasi Windows diblokir browser (izinkan lewat ikon gembok di address bar).</span>
+          )}
+          {notifPerm === "unsupported" && (
+            <span className="text-xs text-gray-500">Notifikasi Windows butuh HTTPS atau localhost.</span>
+          )}
+        </div>
         {message && <p role="status" className="mb-3 text-sm text-red-600">{message}</p>}
         <div className="grid gap-4 md:grid-cols-3">
           {cards.map((card) => (

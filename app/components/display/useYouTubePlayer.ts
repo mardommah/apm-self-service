@@ -15,6 +15,8 @@ export function useYouTubePlayer(playlist: string, volume: number) {
   const [attempt, setAttempt] = useState(0);
   const [muted, setMuted] = useState(true);
   const userMutedRef = useRef(false);
+  const [paused, setPaused] = useState(false);
+  const userPausedRef = useRef(false);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -41,8 +43,9 @@ export function useYouTubePlayer(playlist: string, volume: number) {
             isReady = true;
             setReady(true);
           },
-          // Nobody pauses a TV: any stop (blocked unmute, cued, loop not restarting) resumes muted.
+          // Any stop the viewer did not ask for via the pause button (blocked unmute, cued, loop not restarting) resumes muted.
           onStateChange: (event: any) => {
+            if (userPausedRef.current) return;
             if (event.data === YT_PAUSED || event.data === YT_CUED) {
               event.target.mute();
               setMuted(true);
@@ -90,5 +93,14 @@ export function useYouTubePlayer(playlist: string, volume: number) {
     setMuted(applySound(playerRef.current, volumeRef.current, userMutedRef.current));
   }
 
-  return { hostRef, ready, failed: failed || !playlist, info, muted, toggleMute };
+  function togglePause() {
+    const player = playerRef.current;
+    if (!player?.pauseVideo) return;
+    userPausedRef.current = !paused;
+    setPaused(!paused);
+    if (paused) player.playVideo();
+    else player.pauseVideo();
+  }
+
+  return { hostRef, ready, failed: failed || !playlist, info, muted, toggleMute, paused, togglePause };
 }

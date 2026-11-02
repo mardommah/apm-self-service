@@ -1,5 +1,5 @@
 import type { RowDataPacket } from "mysql2/promise";
-import { directMoveCounter, directSetPanggil, directSimpanNoRm, MLITE_DIRECT_DB, type MliteType } from "./mlite-direct";
+import { directFinishQueue, directMoveCounter, directSetPanggil, directSimpanNoRm, MLITE_DIRECT_DB, type MliteType } from "./mlite-direct";
 import { getSimrsPool } from "./simrs";
 
 // Same endpoints the mLITE pemanggil pages use (anjungan/setpanggil, anjungan/simpannorm).
@@ -43,6 +43,11 @@ export async function callMliteLoket(noantrian: string, type: MliteType, loket: 
     await callAnjungan("loket", { show, antrian: noantrian, reset: counter });
   }
   await callAnjunganJson("setpanggil", { noantrian, type, loket: counter });
+}
+
+/** mLITE has no "close only" endpoint (?loket=L also moves the counter), so this always writes SIMRS_DB_* directly. */
+export function finishMliteQueue(kd: number) {
+  return directFinishQueue(getSimrsPool(), kd);
 }
 
 /** simpannorm only accepts a 6-character RM; verified by reading the row back by its kd. */
