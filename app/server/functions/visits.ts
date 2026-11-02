@@ -306,12 +306,6 @@ export async function revokeVisit(id: string) {
     .where(eq(visits.id, id));
 }
 
-// ─── Delete visit ─────────────────────────────────────────────────────────────
-export async function deleteVisit(id: string) {
-  const db = getDb();
-  await db.delete(visits).where(eq(visits.id, id));
-}
-
 // ─── List visits (admin) ──────────────────────────────────────────────────────
 export interface VisitFilters {
   status?: VisitStatus;

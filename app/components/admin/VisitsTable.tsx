@@ -61,7 +61,6 @@ interface Props {
   visits: VisitRow[];
   onServe: (id: string) => Promise<void>;
   onRevoke: (id: string) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
   onCall: (visit: VisitRow) => Promise<void>;
   onFinish: (id: string) => Promise<void>;
   loading?: string | null; // visit id being processed
@@ -73,8 +72,8 @@ const statusVariant: Record<string, "warning" | "success" | "destructive" | "sec
   revoked: "destructive",
 };
 
-export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFinish, loading }: Props) {
-  const [confirm, setConfirm] = useState<{ action: "revoke" | "delete"; id: string } | null>(null);
+export function VisitsTable({ visits, onServe, onRevoke, onCall, onFinish, loading }: Props) {
+  const [confirm, setConfirm] = useState<string | null>(null);
 
   if (visits.length === 0) {
     return (
@@ -92,17 +91,9 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
       {confirm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
-            <div className="text-4xl mb-3">
-              {confirm.action === "delete" ? "🗑️" : "⚠️"}
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              {confirm.action === "delete" ? "Hapus Data?" : "Batalkan Kunjungan?"}
-            </h3>
-            <p className="text-gray-500 text-sm mb-6">
-              {confirm.action === "delete"
-                ? "Data kunjungan ini akan dihapus permanen."
-                : "Status kunjungan akan diubah menjadi 'Dibatalkan'."}
-            </p>
+            <div className="text-4xl mb-3">⚠️</div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Batalkan Kunjungan?</h3>
+            <p className="text-gray-500 text-sm mb-6">Status kunjungan akan diubah menjadi 'Dibatalkan'.</p>
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -115,8 +106,7 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
                 variant="destructive"
                 className="flex-1"
                 onClick={async () => {
-                  if (confirm.action === "delete") await onDelete(confirm.id);
-                  else await onRevoke(confirm.id);
+                  await onRevoke(confirm);
                   setConfirm(null);
                 }}
               >
@@ -198,21 +188,12 @@ export function VisitsTable({ visits, onServe, onRevoke, onDelete, onCall, onFin
                         size="sm"
                         variant="ghost"
                         disabled={loading === v.id}
-                        onClick={() => setConfirm({ action: "revoke", id: v.id })}
+                        onClick={() => setConfirm(v.id)}
                         className="text-amber-700 hover:bg-amber-50"
                       >
                         Batalkan
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={loading === v.id}
-                      onClick={() => setConfirm({ action: "delete", id: v.id })}
-                      className="text-red-600 hover:bg-red-50"
-                    >
-                      Hapus
-                    </Button>
                   </div>
                 </td>
               </tr>

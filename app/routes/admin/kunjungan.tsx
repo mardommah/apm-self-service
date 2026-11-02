@@ -43,7 +43,6 @@ function VisitsPage() {
             visits={data.visits as any}
             onServe={actions.serve}
             onRevoke={actions.revoke}
-            onDelete={actions.remove}
             onCall={actions.call}
             onFinish={actions.finish}
             loading={loadingVisit}

@@ -2,7 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { getSavedLoket } from "~/lib/admin-loket";
 import { getDashboardDataAction } from "~/server/actions/dashboard-data";
-import { deleteAction, revokeAction, serveAction } from "~/server/actions/dashboard-visits";
+import { revokeAction, serveAction } from "~/server/actions/dashboard-visits";
 import { callVisitAction, finishVisitAction } from "~/server/actions/display";
 import { defaultFilters, type Filters } from "./VisitFilters";
 
@@ -60,7 +60,6 @@ export function useAdminVisits() {
   const actions = {
     serve: (visitId: string) => run(visitId, () => serveAction({ data: { token, visitId } })),
     revoke: (visitId: string) => run(visitId, () => revokeAction({ data: { token, visitId } })),
-    remove: (visitId: string) => run(visitId, () => deleteAction({ data: { token, visitId } })),
     call: (visit: { id: string }) =>
       run(visit.id, () => callVisitAction({ data: { token, visitId: visit.id, loket: getSavedLoket() } }), "Gagal memanggil antrian. Coba lagi."),
     finish: (visitId: string) =>

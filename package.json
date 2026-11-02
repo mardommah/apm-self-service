@@ -9,7 +9,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "frista:agent": "bun run tools/frista-agent/index.ts"
+    "frista:agent": "bun run tools/frista-agent/index.ts",
+    "notifier:build": "bun build --compile --target=bun-windows-x64 tools/loket-notifier/index.ts --outfile dist/loket-notifier/loket-notifier.exe && cp tools/loket-notifier/start-notifier.cmd dist/loket-notifier/"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.23",

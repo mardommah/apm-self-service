@@ -31,6 +31,26 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
   const seenNewest = useRef<Record<string, string | null> | undefined>(undefined);
   const [notifPerm, setNotifPerm] = useState<NotificationPermission | "unsupported">("default");
   useEffect(() => setNotifPerm(osNotification()?.permission ?? "unsupported"), []);
+  // Tickets that arrived while the admin was not looking; blinks the tab title until the page is seen again.
+  const [unseen, setUnseen] = useState(0);
+  useEffect(() => {
+    if (!unseen) return;
+    const original = document.title;
+    let on = false;
+    const id = setInterval(() => {
+      on = !on;
+      document.title = on ? `🔔 (${unseen}) Antrean baru` : original;
+    }, 1_000);
+    const seen = () => !document.hidden && document.hasFocus() && setUnseen(0);
+    document.addEventListener("visibilitychange", seen);
+    window.addEventListener("focus", seen);
+    return () => {
+      clearInterval(id);
+      document.title = original;
+      document.removeEventListener("visibilitychange", seen);
+      window.removeEventListener("focus", seen);
+    };
+  }, [unseen]);
 
   const load = useCallback(
     () =>
@@ -41,9 +61,11 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
             const arrived = next.filter((c) => c.newest && c.newest.id !== seen[c.serviceCode]);
             const items = arrived.map((c) => ({ id: c.newest!.id, text: `${c.label}: ${c.newest!.queueNumber}` }));
             if (items.length) setToasts((t) => [...t, ...items]);
+            const away = document.hidden || !document.hasFocus();
+            if (items.length && away) setUnseen((n) => n + items.length);
             const N = osNotification();
             // OS notification only when the admin is not looking at this tab; the in-page toast covers the rest.
-            if (N?.permission === "granted" && (document.hidden || !document.hasFocus()))
+            if (N?.permission === "granted" && away)
               for (const item of items) {
                 const n = new N("🔔 Antrean baru masuk", { body: item.text, tag: item.id });
                 n.onclick = () => {
@@ -60,8 +82,8 @@ export function LoketCaller({ token, loket, onChange }: { token: string; loket: 
   );
   useEffect(() => {
     load();
-    // Hidden tab keeps polling only when OS notifications are on (browser throttles it to ~1×/min).
-    const id = setInterval(() => (!document.hidden || osNotification()?.permission === "granted") && load(), 5_000);
+    // Keeps polling while hidden so the title blink / OS notification still fire (browser may throttle it to ~1×/min).
+    const id = setInterval(load, 5_000);
     document.addEventListener("visibilitychange", load);
     return () => {
       clearInterval(id);
