@@ -31,3 +31,12 @@ chrome.exe --kiosk --autoplay-policy=no-user-gesture-required http://<server>/di
 ```
 
 Playlist video diatur di Pengaturan Aplikasi admin ("Playlist YouTube display").
+
+## PC TV Jadwal Dokter & Kamar Rawat Inap (`/display-kamar`)
+
+Pengganti `webapps/bed7.php`. Tanpa suara/video, tanpa login. Data dibaca langsung dari DB SIMRS (`SIMRS_DB_*`),
+diperbarui tiap 60 detik:
+
+```
+chrome.exe --kiosk http://<server>/display-kamar
+```

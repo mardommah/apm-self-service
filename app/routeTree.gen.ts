@@ -12,6 +12,7 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as Kiosk2Import } from './routes/kiosk2'
+import { Route as DisplayKamarImport } from './routes/display-kamar'
 import { Route as DisplayImport } from './routes/display'
 import { Route as IndexImport } from './routes/index'
 import { Route as KioskIndexImport } from './routes/kiosk/index'
@@ -29,6 +30,12 @@ import { Route as KioskQrVisitIdImport } from './routes/kiosk/qr.$visitId'
 const Kiosk2Route = Kiosk2Import.update({
   id: '/kiosk2',
   path: '/kiosk2',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DisplayKamarRoute = DisplayKamarImport.update({
+  id: '/display-kamar',
+  path: '/display-kamar',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -116,6 +123,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DisplayImport
       parentRoute: typeof rootRoute
     }
+    '/display-kamar': {
+      id: '/display-kamar'
+      path: '/display-kamar'
+      fullPath: '/display-kamar'
+      preLoaderRoute: typeof DisplayKamarImport
+      parentRoute: typeof rootRoute
+    }
     '/kiosk2': {
       id: '/kiosk2'
       path: '/kiosk2'
@@ -194,6 +208,7 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/display': typeof DisplayRoute
+  '/display-kamar': typeof DisplayKamarRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
@@ -209,6 +224,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/display': typeof DisplayRoute
+  '/display-kamar': typeof DisplayKamarRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
@@ -225,6 +241,7 @@ export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/display': typeof DisplayRoute
+  '/display-kamar': typeof DisplayKamarRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
@@ -242,6 +259,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/display'
+    | '/display-kamar'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
@@ -256,6 +274,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/display'
+    | '/display-kamar'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
@@ -270,6 +289,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/display'
+    | '/display-kamar'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
@@ -286,6 +306,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DisplayRoute: typeof DisplayRoute
+  DisplayKamarRoute: typeof DisplayKamarRoute
   Kiosk2Route: typeof Kiosk2Route
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminKunjunganRoute: typeof AdminKunjunganRoute
@@ -301,6 +322,7 @@ export interface RootRouteChildren {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DisplayRoute: DisplayRoute,
+  DisplayKamarRoute: DisplayKamarRoute,
   Kiosk2Route: Kiosk2Route,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminKunjunganRoute: AdminKunjunganRoute,
@@ -325,6 +347,7 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/display",
+        "/display-kamar",
         "/kiosk2",
         "/admin/dashboard",
         "/admin/kunjungan",
@@ -342,6 +365,9 @@ export const routeTree = rootRoute
     },
     "/display": {
       "filePath": "display.tsx"
+    },
+    "/display-kamar": {
+      "filePath": "display-kamar.tsx"
     },
     "/kiosk2": {
       "filePath": "kiosk2.tsx"

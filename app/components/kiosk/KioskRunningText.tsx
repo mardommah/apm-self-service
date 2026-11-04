@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Megaphone } from "lucide-react";
+import { Megaphone, type LucideIcon } from "lucide-react";
 import { RUNNING_TEXT_MESSAGES } from "~/components/kiosk/runningText";
 
 const SPEED_PX_PER_SEC = 60;
@@ -20,9 +20,13 @@ function Messages({ messages, hidden }: { messages: string[]; hidden?: boolean }
 export function KioskRunningText({
   messages = RUNNING_TEXT_MESSAGES,
   size = "kiosk",
+  label = "Info",
+  icon: Icon = Megaphone,
 }: {
   messages?: string[];
   size?: "kiosk" | "display";
+  label?: string;
+  icon?: LucideIcon;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [reduced, setReduced] = useState(false);
@@ -53,8 +57,8 @@ export function KioskRunningText({
       className={`flex ${size === "display" ? "h-16" : "h-14"} shrink-0 items-center overflow-hidden bg-bp-accent-ink lg:col-span-2`}
     >
       <div className="flex h-full shrink-0 items-center gap-2.5 bg-white px-[22px] text-bp-accent-ink">
-        <Megaphone size={20} aria-hidden />
-        <span className="font-caption text-sm uppercase tracking-[1.4px]">Info</span>
+        <Icon size={20} aria-hidden />
+        <span className="font-caption text-sm uppercase tracking-[1.4px]">{label}</span>
       </div>
       <div className="min-w-0 flex-1 overflow-hidden pl-7 font-body text-[19px] font-medium text-white">
         {reduced ? (
