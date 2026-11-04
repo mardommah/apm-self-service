@@ -9,7 +9,7 @@ import { DisplayTopBar } from "./DisplayTopBar";
 import { DISPLAY_TIMEZONE } from "./displayConfig";
 import { displayToday } from "./displayRunningText";
 import { kamarRunningText } from "./kamarRunningText";
-import { useDisplayScale } from "./useDisplayScale";
+import { useDisplayFill } from "./useDisplayScale";
 
 const POLL_MS = 60_000;
 const POLL_MAX_MS = 300_000;
@@ -22,7 +22,7 @@ const hhmm = (iso: string) =>
 export function DisplayKamarScreen({ initial }: { initial: DisplayKamarData | null }) {
   const [data, setData] = useState(initial);
   const [failing, setFailing] = useState(false);
-  const scale = useDisplayScale();
+  const { scale, width, height } = useDisplayFill();
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -57,7 +57,7 @@ export function DisplayKamarScreen({ initial }: { initial: DisplayKamarData | nu
 
   return (
     <div className="grid h-dvh w-screen place-items-center overflow-hidden bg-bp-ink">
-      <div style={{ zoom: scale }} className="flex h-[1080px] w-[1920px] shrink-0 flex-col overflow-hidden bg-bp-surface-2">
+      <div style={{ zoom: scale, width, height }} className="flex shrink-0 flex-col overflow-hidden bg-bp-surface-2">
         <DisplayTopBar eyebrow="DISPLAY INFORMASI / RAWAT INAP" />
         <main className="flex min-h-0 flex-1">
           <DisplayJadwalTable jadwal={data?.jadwal ?? null} error={!data} />
