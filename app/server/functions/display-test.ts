@@ -14,3 +14,15 @@ export function requestDisplayTest(test: { kind: "prayer" } | { kind: "call"; lo
 export function getDisplayTest() {
   return lastTest;
 }
+
+// /display-poli has its own slot, so a poli test never plays on the loket TV (and the other way round).
+let lastPoliTest: { id: number } | null = null;
+
+export function requestPoliDisplayTest() {
+  lastPoliTest = { id: Date.now() };
+  return lastPoliTest;
+}
+
+export function getPoliDisplayTest() {
+  return lastPoliTest;
+}

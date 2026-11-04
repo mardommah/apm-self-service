@@ -29,9 +29,9 @@ export function DisplayTopBar({ eyebrow = "DISPLAY ANTREAN LOKET" }: { eyebrow?:
         </div>
       </div>
       <div className="flex items-center gap-6">
-        <div className="flex flex-col items-end gap-1.5 font-caption">
-          <span className="text-[13px] text-bp-muted">{now && format(now, { weekday: "long" })}</span>
-          <span className="text-base text-bp-ink">
+        <div className="flex flex-col items-end gap-1 font-caption leading-none">
+          <span className="text-[20px] text-bp-muted">{now && format(now, { weekday: "long" })}</span>
+          <span className="text-[26px] text-bp-ink">
             {now && format(now, { day: "2-digit", month: "short", year: "numeric" }).replace(".", "")}
           </span>
         </div>

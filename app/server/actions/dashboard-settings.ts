@@ -10,7 +10,7 @@ import {
   setPrayerSettings,
 } from "../functions/settings";
 import { parsePrayerSettings, type PrayerSettings } from "~/lib/prayer-times";
-import { requestDisplayTest } from "../functions/display-test";
+import { requestDisplayTest, requestPoliDisplayTest } from "../functions/display-test";
 import { setServiceQueuePrefix } from "../functions/visits";
 import { isQueuePrefix, MLITE_SERVICE_CODES } from "~/lib/queue-prefix";
 import { requireAdminToken } from "./admin-auth";
@@ -134,4 +134,12 @@ export const testPatientCallAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     requireAdminToken(data.token, true);
     return requestDisplayTest({ kind: "call", loket: data.loket });
+  });
+
+/** "Tes panggilan poli di TV": every open /display-poli plays a sample poli call; not recorded anywhere. */
+export const testPoliCallAction = createServerFn({ method: "POST" })
+  .validator((data: { token: string }) => data)
+  .handler(async ({ data }) => {
+    requireAdminToken(data.token, true);
+    return requestPoliDisplayTest();
   });

@@ -10,14 +10,23 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 /**
  * Setting value: a playlist ID, or comma-joined video IDs.
- * Video IDs play in order and loop (YouTube loops only when `playlist` lists the IDs, including the first).
+ * Video IDs: one video loops through YouTube (`playlist` = its own ID). Several are advanced by the player hook on
+ * "ended" (`videoIds`): YouTube's `playlist` param plays the `videoId` first and then the whole list, so
+ * `videoId=A, playlist=A,B` played A, A, B and the second video seemed never to start.
  */
 export function sourceOptions(source: string) {
-  const ids = source.split(",");
-  if (ids.every((id) => VIDEO_ID.test(id))) {
-    return { videoId: ids[0], single: ids.length === 1, playerVars: { ...PLAYER_VARS, playlist: ids.join(",") } };
+  const ids = source.split(",").map((id) => id.trim()).filter(Boolean);
+  if (ids.length > 0 && ids.every((id) => VIDEO_ID.test(id))) {
+    const single = ids.length === 1;
+    return { videoId: ids[0], videoIds: ids, single, playerVars: single ? { ...PLAYER_VARS, playlist: ids[0] } : { ...PLAYER_VARS, loop: 0 } };
   }
-  return { videoId: undefined, single: false, playerVars: { ...PLAYER_VARS, listType: "playlist", list: source } };
+  return { videoId: undefined, videoIds: [] as string[], single: false, playerVars: { ...PLAYER_VARS, listType: "playlist", list: source } };
+}
+
+/** Next video ID of a comma-joined list, wrapping to the first. */
+export function nextVideoId(ids: string[], current: string) {
+  const index = ids.indexOf(current);
+  return ids[(index + 1) % ids.length];
 }
 
 /**

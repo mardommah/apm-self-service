@@ -4,6 +4,7 @@ const LINKS = [
   { to: "/admin/dashboard", label: "📣 Pemanggil" },
   { to: "/admin/kunjungan", label: "📋 Kunjungan & Statistik" },
   { to: "/admin/pasien", label: "🔎 Cari Pasien" },
+  { to: "/admin/riwayat-poli", label: "🩺 Riwayat Poli" },
   { to: "/admin/pengaturan", label: "⚙️ Pengaturan", adminOnly: true },
 ] as const;
 

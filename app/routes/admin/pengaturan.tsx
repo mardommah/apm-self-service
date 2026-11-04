@@ -377,6 +377,7 @@ function SettingsPage() {
             <PrayerTimesSettings token={token} value={data.prayerSettings} onSaved={() => fetchData(token)} />
 
             <DisplayCallTest token={token} />
+            <DisplayCallTest token={token} target="poli" />
 
             <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4">
               <div>

@@ -52,6 +52,7 @@ export function speak(text: string, options: { pitch?: number } = {}): Promise<v
     rv.speak(text, RV_VOICE, {
       rate: 0.9,
       pitch,
+      volume: 1,
       onstart: () => (started = true),
       onend: () => started && (clearTimeout(watchdog), done()),
       onerror: () => {
@@ -77,6 +78,7 @@ function browserSpeak(text: string, pitch: number, done: () => void) {
   else console.warn("[announce] no Indonesian browser voice installed; using the default voice");
   utterance.rate = 0.9;
   utterance.pitch = pitch;
+  utterance.volume = 1;
   utterance.onend = done;
   utterance.onerror = (event) => {
     console.warn("[announce] browser speech error:", event.error);
@@ -114,7 +116,7 @@ export function chime(): Promise<void> {
     const gain = ctx.createGain();
     osc.frequency.value = freq;
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(0.5, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.9, start + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.75);
     osc.connect(gain).connect(ctx.destination);
     osc.start(start);

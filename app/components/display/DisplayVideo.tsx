@@ -8,26 +8,16 @@ function clock(seconds: number) {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
+/** Player only, edge to edge: no video/playlist titles; controls and progress appear on hover. */
 export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: boolean }) {
   const volume = ducked ? DISPLAY_DUCKED_VOLUME : DISPLAY_VIDEO_VOLUME;
   const { hostRef, ready, failed, info, muted, toggleMute, paused, togglePause } = useYouTubePlayer(playlist, volume);
   const playing = ready && !failed;
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-5 pb-7 pl-10 pr-8 pt-8">
-      <div className="flex items-center justify-between font-caption text-[13px] text-bp-muted">
-        <div className="flex items-center gap-2.5">
-          <span>VIDEO YOUTUBE</span>
-          {info.author && (
-            <span className="flex items-center gap-2 border border-bp-ink px-2.5 py-1 text-xs text-bp-ink">
-              <YouTubeMark /> {info.author}
-            </span>
-          )}
-        </div>
-        {info.total > 1 && <span>PLAYLIST {info.index} / {info.total}</span>}
-      </div>
+    <section className="flex min-w-0 flex-1 flex-col">
 
-      <div className="group relative min-h-0 flex-1 overflow-hidden border border-bp-ink bg-bp-navy">
+      <div className="group relative min-h-0 flex-1 overflow-hidden bg-bp-navy">
         <div ref={hostRef} className={`absolute inset-0 [&>iframe]:size-full ${failed ? "hidden" : ""}`} />
         {failed && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-6">
@@ -35,7 +25,7 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
             <p className="font-body text-[22px] text-[#BFDBFE]">Video sedang tidak tersedia</p>
           </div>
         )}
-        {/* Title, audio status and controls stay out of the way: shown only while the mouse is over the video (or the mute button has focus). */}
+        {/* Audio status, controls and progress stay out of the way: shown only while the mouse is over the video (or the mute button has focus). */}
         {playing && (
           <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
             <span className="absolute left-7 top-7 flex items-center gap-2.5 bg-bp-navy px-3.5 py-2 font-caption text-[13px] text-white">
@@ -63,7 +53,6 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
             </button>
             <div className="absolute inset-x-0 bottom-0 h-80 bg-[linear-gradient(to_bottom,#0B2A8600,#0B1A30CC)]" />
             <div className="absolute inset-x-7 bottom-7 flex flex-col gap-4">
-              <p className="truncate font-display text-[44px] font-medium tracking-[-1px] text-white">{info.title}</p>
               <div className="flex items-center gap-4 font-caption text-[13px]">
                 <span className="text-white tabular-nums">{clock(info.current)}</span>
                 <div className="h-1 flex-1 bg-[#FFFFFF40]">
@@ -79,13 +68,6 @@ export function DisplayVideo({ playlist, ducked }: { playlist: string; ducked: b
         )}
       </div>
 
-      {playing && info.total > 1 && info.nextTitle && (
-        <div className="flex items-center gap-4">
-          <span className="font-caption text-[13px] text-bp-muted">BERIKUTNYA DI PLAYLIST</span>
-          <span aria-hidden className="h-px w-6 bg-bp-faint" />
-          <span className="truncate font-body text-xl font-medium text-bp-ink">{info.nextTitle}</span>
-        </div>
-      )}
     </section>
   );
 }

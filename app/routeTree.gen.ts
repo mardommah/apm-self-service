@@ -12,12 +12,14 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as Kiosk2Import } from './routes/kiosk2'
+import { Route as DisplayPoliImport } from './routes/display-poli'
 import { Route as DisplayKamarImport } from './routes/display-kamar'
 import { Route as DisplayImport } from './routes/display'
 import { Route as IndexImport } from './routes/index'
 import { Route as KioskIndexImport } from './routes/kiosk/index'
 import { Route as VisitVisitIdImport } from './routes/visit.$visitId'
 import { Route as AdminScanImport } from './routes/admin/scan'
+import { Route as AdminRiwayatPoliImport } from './routes/admin/riwayat-poli'
 import { Route as AdminPengaturanImport } from './routes/admin/pengaturan'
 import { Route as AdminPasienImport } from './routes/admin/pasien'
 import { Route as AdminLoginImport } from './routes/admin/login'
@@ -30,6 +32,12 @@ import { Route as KioskQrVisitIdImport } from './routes/kiosk/qr.$visitId'
 const Kiosk2Route = Kiosk2Import.update({
   id: '/kiosk2',
   path: '/kiosk2',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DisplayPoliRoute = DisplayPoliImport.update({
+  id: '/display-poli',
+  path: '/display-poli',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -66,6 +74,12 @@ const VisitVisitIdRoute = VisitVisitIdImport.update({
 const AdminScanRoute = AdminScanImport.update({
   id: '/admin/scan',
   path: '/admin/scan',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AdminRiwayatPoliRoute = AdminRiwayatPoliImport.update({
+  id: '/admin/riwayat-poli',
+  path: '/admin/riwayat-poli',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -130,6 +144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DisplayKamarImport
       parentRoute: typeof rootRoute
     }
+    '/display-poli': {
+      id: '/display-poli'
+      path: '/display-poli'
+      fullPath: '/display-poli'
+      preLoaderRoute: typeof DisplayPoliImport
+      parentRoute: typeof rootRoute
+    }
     '/kiosk2': {
       id: '/kiosk2'
       path: '/kiosk2'
@@ -172,6 +193,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPengaturanImport
       parentRoute: typeof rootRoute
     }
+    '/admin/riwayat-poli': {
+      id: '/admin/riwayat-poli'
+      path: '/admin/riwayat-poli'
+      fullPath: '/admin/riwayat-poli'
+      preLoaderRoute: typeof AdminRiwayatPoliImport
+      parentRoute: typeof rootRoute
+    }
     '/admin/scan': {
       id: '/admin/scan'
       path: '/admin/scan'
@@ -209,12 +237,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/display': typeof DisplayRoute
   '/display-kamar': typeof DisplayKamarRoute
+  '/display-poli': typeof DisplayPoliRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/pasien': typeof AdminPasienRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
+  '/admin/riwayat-poli': typeof AdminRiwayatPoliRoute
   '/admin/scan': typeof AdminScanRoute
   '/visit/$visitId': typeof VisitVisitIdRoute
   '/kiosk': typeof KioskIndexRoute
@@ -225,12 +255,14 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/display': typeof DisplayRoute
   '/display-kamar': typeof DisplayKamarRoute
+  '/display-poli': typeof DisplayPoliRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/pasien': typeof AdminPasienRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
+  '/admin/riwayat-poli': typeof AdminRiwayatPoliRoute
   '/admin/scan': typeof AdminScanRoute
   '/visit/$visitId': typeof VisitVisitIdRoute
   '/kiosk': typeof KioskIndexRoute
@@ -242,12 +274,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/display': typeof DisplayRoute
   '/display-kamar': typeof DisplayKamarRoute
+  '/display-poli': typeof DisplayPoliRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/pasien': typeof AdminPasienRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
+  '/admin/riwayat-poli': typeof AdminRiwayatPoliRoute
   '/admin/scan': typeof AdminScanRoute
   '/visit/$visitId': typeof VisitVisitIdRoute
   '/kiosk/': typeof KioskIndexRoute
@@ -260,12 +294,14 @@ export interface FileRouteTypes {
     | '/'
     | '/display'
     | '/display-kamar'
+    | '/display-poli'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
     | '/admin/login'
     | '/admin/pasien'
     | '/admin/pengaturan'
+    | '/admin/riwayat-poli'
     | '/admin/scan'
     | '/visit/$visitId'
     | '/kiosk'
@@ -275,12 +311,14 @@ export interface FileRouteTypes {
     | '/'
     | '/display'
     | '/display-kamar'
+    | '/display-poli'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
     | '/admin/login'
     | '/admin/pasien'
     | '/admin/pengaturan'
+    | '/admin/riwayat-poli'
     | '/admin/scan'
     | '/visit/$visitId'
     | '/kiosk'
@@ -290,12 +328,14 @@ export interface FileRouteTypes {
     | '/'
     | '/display'
     | '/display-kamar'
+    | '/display-poli'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
     | '/admin/login'
     | '/admin/pasien'
     | '/admin/pengaturan'
+    | '/admin/riwayat-poli'
     | '/admin/scan'
     | '/visit/$visitId'
     | '/kiosk/'
@@ -307,12 +347,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DisplayRoute: typeof DisplayRoute
   DisplayKamarRoute: typeof DisplayKamarRoute
+  DisplayPoliRoute: typeof DisplayPoliRoute
   Kiosk2Route: typeof Kiosk2Route
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminKunjunganRoute: typeof AdminKunjunganRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminPasienRoute: typeof AdminPasienRoute
   AdminPengaturanRoute: typeof AdminPengaturanRoute
+  AdminRiwayatPoliRoute: typeof AdminRiwayatPoliRoute
   AdminScanRoute: typeof AdminScanRoute
   VisitVisitIdRoute: typeof VisitVisitIdRoute
   KioskIndexRoute: typeof KioskIndexRoute
@@ -323,12 +365,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DisplayRoute: DisplayRoute,
   DisplayKamarRoute: DisplayKamarRoute,
+  DisplayPoliRoute: DisplayPoliRoute,
   Kiosk2Route: Kiosk2Route,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminKunjunganRoute: AdminKunjunganRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminPasienRoute: AdminPasienRoute,
   AdminPengaturanRoute: AdminPengaturanRoute,
+  AdminRiwayatPoliRoute: AdminRiwayatPoliRoute,
   AdminScanRoute: AdminScanRoute,
   VisitVisitIdRoute: VisitVisitIdRoute,
   KioskIndexRoute: KioskIndexRoute,
@@ -348,12 +392,14 @@ export const routeTree = rootRoute
         "/",
         "/display",
         "/display-kamar",
+        "/display-poli",
         "/kiosk2",
         "/admin/dashboard",
         "/admin/kunjungan",
         "/admin/login",
         "/admin/pasien",
         "/admin/pengaturan",
+        "/admin/riwayat-poli",
         "/admin/scan",
         "/visit/$visitId",
         "/kiosk/",
@@ -368,6 +414,9 @@ export const routeTree = rootRoute
     },
     "/display-kamar": {
       "filePath": "display-kamar.tsx"
+    },
+    "/display-poli": {
+      "filePath": "display-poli.tsx"
     },
     "/kiosk2": {
       "filePath": "kiosk2.tsx"
@@ -386,6 +435,9 @@ export const routeTree = rootRoute
     },
     "/admin/pengaturan": {
       "filePath": "admin/pengaturan.tsx"
+    },
+    "/admin/riwayat-poli": {
+      "filePath": "admin/riwayat-poli.tsx"
     },
     "/admin/scan": {
       "filePath": "admin/scan.tsx"

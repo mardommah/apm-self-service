@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { applySound, sourceOptions, useVolumeRamp, YT_CUED, YT_ENDED, YT_PAUSED } from "./youtubeSource";
+import { applySound, nextVideoId, sourceOptions, useVolumeRamp, YT_CUED, YT_ENDED, YT_PAUSED } from "./youtubeSource";
 import { loadYouTubeApi } from "./youtubeApi";
 import { useVideoInfo } from "./useVideoInfo";
 
@@ -53,6 +53,9 @@ export function useYouTubePlayer(playlist: string, volume: number) {
             } else if (event.data === YT_ENDED && options.single) {
               event.target.seekTo(0);
               event.target.playVideo();
+            } else if (event.data === YT_ENDED && options.videoIds.length > 1) {
+              const current = event.target.getVideoData?.().video_id ?? "";
+              event.target.loadVideoById(nextVideoId(options.videoIds, current));
             }
           },
           onError: fail,

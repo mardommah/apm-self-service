@@ -1,7 +1,7 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { getSimrsPool } from "../simrs";
 
-export type JadwalRow = { dokter: string; poli: string; mulai: string; selesai: string };
+export type JadwalRow = { dokter: string; poli: string; kdPoli: string; mulai: string; selesai: string };
 export type KamarRow = { kelas: string; label: string; kapasitas: number; terisi: number; tarif: number; tarifBeda: boolean };
 
 const HARI_KERJA = ["AKHAD", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
@@ -25,7 +25,7 @@ export function sortKamar(rows: KamarRow[]) {
 
 export async function getJadwalHariIni(hari: string): Promise<JadwalRow[]> {
   const [rows] = await getSimrsPool().query<RowDataPacket[]>(
-    `SELECT d.nm_dokter, p.nm_poli, j.jam_mulai, j.jam_selesai
+    `SELECT d.nm_dokter, p.nm_poli, p.kd_poli, j.jam_mulai, j.jam_selesai
      FROM jadwal j
      JOIN dokter d ON d.kd_dokter = j.kd_dokter
      JOIN poliklinik p ON p.kd_poli = j.kd_poli
@@ -36,6 +36,7 @@ export async function getJadwalHariIni(hari: string): Promise<JadwalRow[]> {
   return rows.map((r) => ({
     dokter: String(r.nm_dokter),
     poli: String(r.nm_poli),
+    kdPoli: String(r.kd_poli),
     mulai: String(r.jam_mulai).slice(0, 5),
     selesai: String(r.jam_selesai).slice(0, 5),
   }));

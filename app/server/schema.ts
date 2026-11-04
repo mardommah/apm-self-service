@@ -98,6 +98,28 @@ export const queueCalls = mysqlTable(
   })
 );
 
+// Poli calls seen in SIMRS antripoli (migration 0019), see app/server/functions/display-poli.ts.
+export const poliCalls = mysqlTable(
+  "poli_calls",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    noRawat: varchar("no_rawat", { length: 17 }).notNull(),
+    kdPoli: varchar("kd_poli", { length: 5 }).notNull(),
+    kdDokter: varchar("kd_dokter", { length: 20 }).notNull(),
+    queueNumber: varchar("queue_number", { length: 30 }).notNull(),
+    pasien: varchar("pasien", { length: 100 }).notNull(),
+    poli: varchar("poli", { length: 100 }).notNull(),
+    dokter: varchar("dokter", { length: 100 }).notNull(),
+    isRecall: boolean("is_recall").default(false).notNull(),
+    calledAt: datetime("called_at").notNull(),
+    finishedAt: datetime("finished_at"),
+  },
+  (table) => ({
+    calledAtIdx: index("idx_poli_calls_called_at").on(table.calledAt),
+    slotIdx: index("idx_poli_calls_slot").on(table.kdDokter, table.kdPoli, table.calledAt),
+  })
+);
+
 export const bpjsWorkflows = mysqlTable(
   "bpjs_kiosk_workflows",
   {

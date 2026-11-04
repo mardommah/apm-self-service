@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { callText, chime, playSound, PRAYER_SOUND_URL, prayerAnnouncementText, speak } from "~/lib/announce";
 import type { QueueCall } from "~/server/functions/calls";
 
-export interface ActiveCall {
-  call: QueueCall;
+export interface ActiveCall<T = QueueCall> {
+  call: T;
   round: 1 | 2;
   leaving: boolean;
 }
@@ -20,7 +20,9 @@ export interface ActivePrayer {
   leaving: boolean;
 }
 
-type Announcement = { kind: "call"; call: QueueCall } | { kind: "prayer"; prayer: PrayerCall };
+type Announcement<T> = { kind: "call"; call: T } | { kind: "prayer"; prayer: PrayerCall };
+
+const loketCallText = (call: QueueCall) => callText(call.queueNumber, call.serviceLabel, call.loket);
 
 const MIN_CYCLE_MS = 7_600;
 const MIN_PRAYER_MS = 12_000;
@@ -30,11 +32,13 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * FIFO announcer (DESIGN.md §9.7): bell, overlay, TTS twice, then fade out and flash the loket row.
  * Prayer announcements share the queue so the voice never talks over a patient call.
  */
-export function useCallAnnouncer() {
-  const queue = useRef<Announcement[]>([]);
+export function useCallAnnouncer<T extends { id: number } = QueueCall>(
+  textOf: (call: T) => string = loketCallText as unknown as (call: T) => string,
+) {
+  const queue = useRef<Announcement<T>[]>([]);
   const busy = useRef(false);
   const mounted = useRef(true);
-  const [active, setActive] = useState<ActiveCall | null>(null);
+  const [active, setActive] = useState<ActiveCall<T> | null>(null);
   const [activePrayer, setActivePrayer] = useState<ActivePrayer | null>(null);
   const [flashId, setFlashId] = useState<number>();
 
@@ -45,14 +49,17 @@ export function useCallAnnouncer() {
     };
   }, []);
 
-  const announceCall = useCallback(async (call: QueueCall) => {
+  const textOfRef = useRef(textOf);
+  textOfRef.current = textOf;
+
+  const announceCall = useCallback(async (call: T) => {
     const started = Date.now();
     setFlashId(undefined);
     const bell = chime().catch(() => {});
     await wait(200);
     setActive({ call, round: 1, leaving: false });
     await bell;
-    const text = callText(call.queueNumber, call.serviceLabel, call.loket);
+    const text = textOfRef.current(call);
     await speak(text);
     await wait(800);
     setActive({ call, round: 2, leaving: false });
@@ -91,7 +98,7 @@ export function useCallAnnouncer() {
   }, [announceCall, announcePrayer]);
 
   const enqueue = useCallback(
-    (calls: QueueCall[]) => {
+    (calls: T[]) => {
       if (calls.length === 0) return;
       queue.current.push(...calls.map((call) => ({ kind: "call" as const, call })));
       run();
