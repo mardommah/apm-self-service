@@ -16,6 +16,7 @@ const loginAction = createServerFn({ method: "POST" })
   });
 
 export const Route = createFileRoute("/admin/login")({
+  head: () => ({ meta: [{ title: "Login Admin · Klinik Syamsinar" }] }),
   component: LoginPage,
 });
 

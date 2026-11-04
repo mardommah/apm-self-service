@@ -7,6 +7,7 @@ import { Label } from "~/components/ui/label";
 import { searchSimrsPatientsAction } from "~/server/actions/patient-search";
 
 export const Route = createFileRoute("/admin/pasien")({
+  head: () => ({ meta: [{ title: "Cari Pasien · Klinik Syamsinar" }] }),
   component: PatientSearchPage,
 });
 

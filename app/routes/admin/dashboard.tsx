@@ -7,6 +7,7 @@ import { getDashboardDataAction } from "~/server/actions/dashboard-data";
 import { getSavedLoket, LOKET_COUNT, saveLoket } from "~/lib/admin-loket";
 
 export const Route = createFileRoute("/admin/dashboard")({
+  head: () => ({ meta: [{ title: "Pemanggil Antrean · Klinik Syamsinar" }] }),
   component: DashboardPage,
 });
 

@@ -21,6 +21,7 @@ import {
 import { DEFAULT_QUEUE_PREFIX, QUEUE_PREFIXES } from "~/lib/queue-prefix";
 
 export const Route = createFileRoute("/admin/pengaturan")({
+  head: () => ({ meta: [{ title: "Pengaturan Aplikasi · Klinik Syamsinar" }] }),
   component: SettingsPage,
 });
 

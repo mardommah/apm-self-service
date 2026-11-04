@@ -31,6 +31,7 @@ const loadVisitAction = createServerFn({ method: "GET" })
   });
 
 export const Route = createFileRoute("/visit/$visitId")({
+  head: () => ({ meta: [{ title: "Tiket Kunjungan · Klinik Syamsinar" }] }),
   loader: async ({ params }): Promise<VisitData> => {
     return loadVisitAction({ data: { visitId: (params as any).visitId } });
   },

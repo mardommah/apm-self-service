@@ -7,6 +7,7 @@ import { VisitsTable } from "~/components/admin/VisitsTable";
 import { Button } from "~/components/ui/button";
 
 export const Route = createFileRoute("/admin/kunjungan")({
+  head: () => ({ meta: [{ title: "Daftar Kunjungan · Klinik Syamsinar" }] }),
   component: VisitsPage,
 });
 

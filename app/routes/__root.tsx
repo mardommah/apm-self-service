@@ -14,6 +14,7 @@ export const Route = createRootRoute({
       { title: "Klinik Syamsinar Maros Self Service" },
     ],
     links: [
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },

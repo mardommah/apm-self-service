@@ -63,6 +63,7 @@ const getScanSettingAction = createServerFn({ method: "GET" })
   });
 
 export const Route = createFileRoute("/admin/scan")({
+  head: () => ({ meta: [{ title: "Scan Barcode · Klinik Syamsinar" }] }),
   component: ScanPage,
 });
 

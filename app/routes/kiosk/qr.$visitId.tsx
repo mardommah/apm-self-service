@@ -37,6 +37,7 @@ const getVisitAction = createServerFn({ method: "GET" })
   });
 
 export const Route = createFileRoute("/kiosk/qr/$visitId")({
+  head: () => ({ meta: [{ title: "Tiket Antrean · Klinik Syamsinar" }] }),
   validateSearch: (search: Record<string, unknown>): { from?: "kiosk2" } =>
     search.from === "kiosk2" ? { from: "kiosk2" } : {},
   loader: async ({ params }): Promise<VisitDetail> => {

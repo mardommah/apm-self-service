@@ -4,6 +4,7 @@ import type { KioskData } from "~/server/actions/kiosk";
 import { cacheKioskData, getCachedKioskData } from "~/lib/offline-kiosk";
 
 export const Route = createFileRoute("/kiosk2")({
+  head: () => ({ meta: [{ title: "Anjungan Mandiri 2 · Klinik Syamsinar" }] }),
   // Cache-first: last services/settings render instantly (also offline); the fetch refreshes the cache for the next open.
   loader: (): Promise<KioskData> => {
     const cached = getCachedKioskData();
