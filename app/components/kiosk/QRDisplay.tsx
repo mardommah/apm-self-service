@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { formatDateTime, PATIENT_STATUS_LABELS, SERVICE_ICONS, type PatientStatus } from "~/lib/utils";
 import { printTicket, receiptHtml, ticketReceipt } from "~/lib/print";
+import { useBlockContextMenu } from "~/lib/kiosk-touch";
 import { QrActions } from "./QrActions";
 import { QrCountdown } from "./QrCountdown";
 
@@ -40,6 +41,7 @@ export function QRDisplay({
   const url = `${appUrl}/visit/${visitId}`;
   const icon = SERVICE_ICONS[serviceCode] ?? "🏥";
   const autoPrinted = useRef(false);
+  useBlockContextMenu();
 
   useEffect(() => {
     // Ref guard: print once per visit even if the effect re-runs (StrictMode).
@@ -70,7 +72,7 @@ export function QRDisplay({
   }
 
   return (
-    <div className="flex flex-col min-h-dvh bg-gradient-to-b from-blue-50 to-white">
+    <div className="kiosk-touch flex flex-col min-h-dvh bg-gradient-to-b from-blue-50 to-white">
       <QrActions homePath={homePath} onPrint={handlePrint} />
 
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-10 gap-8">

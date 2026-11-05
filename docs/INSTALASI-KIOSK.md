@@ -30,6 +30,9 @@ terdengar tanpa klik:
 chrome.exe --kiosk --autoplay-policy=no-user-gesture-required http://<server>/display
 ```
 
+Auto start saat PC nyala (profil Chrome terpisah, watchdog buka ulang bila ditutup, keluar hanya dengan
+`Ctrl+Alt+Shift+Q`): lihat [tools/display-launcher/README.md](../tools/display-launcher/README.md).
+
 Playlist video diatur di Pengaturan Aplikasi admin ("Playlist YouTube display").
 
 ## PC TV Jadwal Dokter & Kamar Rawat Inap (`/display-kamar`)

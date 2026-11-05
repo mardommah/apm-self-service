@@ -11,6 +11,7 @@ import {
 } from "~/components/kiosk/BpjsCameraScanner";
 import { TouchKeyboard } from "~/components/kiosk/TouchKeyboard";
 import { printBpjsCheckin } from "~/lib/print";
+import { useBlockContextMenu } from "~/lib/kiosk-touch";
 import { queueOfflineVisit, startBackgroundSync } from "~/lib/offline-kiosk";
 import { lookupBpjsBooking } from "~/server/functions/bpjs";
 import { createVisit } from "~/server/functions/visits";
@@ -84,6 +85,7 @@ export function KioskScreen({ data, bpjsDirectPrint = false }: Props) {
   const bpjsCardInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => (bpjsDirectPrint ? startBackgroundSync() : undefined), [bpjsDirectPrint]);
+  useBlockContextMenu();
 
   function resetBookingConfirmation() {
     setBookingConfirmation(null);
