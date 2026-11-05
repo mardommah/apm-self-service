@@ -15,3 +15,11 @@ export function displayToday(now = new Date()) {
     .map(Number);
   return { year, month, day };
 }
+
+// DESIGN-DISPLAY-POLI-MATA.md §5 (prayer times are prepended).
+export const DISPLAY_POLI_MATA_RUNNING_TEXT = [
+  "Selamat datang di Poli Mata Klinik Syamsinar Maros",
+  "Pasien operasi katarak wajib puasa 6 jam & didampingi 1 keluarga",
+  "Siapkan kartu BPJS / KTP sebelum dipanggil",
+  "Dengarkan panggilan nomor antrean Anda",
+];

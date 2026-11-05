@@ -40,7 +40,9 @@ export function speak(text: string, options: { pitch?: number } = {}): Promise<v
       resolve();
     }
     const rv = (window as any).responsiveVoice;
-    if (!rv?.voiceSupport?.()) return browserSpeak(text, pitch, done);
+    // Before the first click ResponsiveVoice's internal audio.play() rejects uncaught (NotAllowedError);
+    // browser speech fails quietly instead.
+    if (!rv?.voiceSupport?.() || !isAudioUnlocked()) return browserSpeak(text, pitch, done);
     let started = false;
     const watchdog = setTimeout(() => {
       if (started || finished) return;

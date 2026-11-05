@@ -43,3 +43,13 @@ diperbarui tiap 60 detik:
 ```
 chrome.exe --kiosk http://<server>/display-kamar
 ```
+
+## PC TV Poli Mata & Jadwal Operasi (`/display-poli-mata`)
+
+Pengganti `webapps/jadwaloperasi.php` untuk ruang tunggu Poli Mata: video, panggilan Poli Mata (bersuara, dari tombol
+panggil SIMRS) + 3 antrean berikutnya, jadwal operasi OK MATA hari ini (tanpa nama pasien). Butuh tabel `poli_calls`
+(`make db-migrate-raw`).
+
+```
+chrome.exe --kiosk --autoplay-policy=no-user-gesture-required http://<server>/display-poli-mata
+```

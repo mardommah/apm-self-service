@@ -139,21 +139,21 @@ const callColumns = {
   calledAt: poliCalls.calledAt,
 };
 
-/** Every TV polls this; one SIMRS query per second at most, shared by all TVs (refresh runs one at a time). */
-export async function pollPoliCalls(afterId: number | undefined) {
+/** Every TV polls this; one SIMRS query per second at most, shared by all TVs (refresh runs one at a time). `kdPoli`: one poli only. */
+export async function pollPoliCalls(afterId: number | undefined, kdPoli?: string) {
   if (Date.now() - refreshedAt >= MIN_REFRESH_MS) {
     inflight ??= refresh().finally(() => (inflight = null));
     await inflight;
   }
   const db = getDb();
-  const today = gte(poliCalls.calledAt, dayRange(todayWita()).start);
+  const today = and(gte(poliCalls.calledAt, dayRange(todayWita()).start), kdPoli ? eq(poliCalls.kdPoli, kdPoli) : undefined);
   const [calls, [lastCall]] = await Promise.all([
     afterId === undefined
       ? Promise.resolve([])
       : db.select(callColumns).from(poliCalls).where(and(today, gt(poliCalls.id, afterId))).orderBy(asc(poliCalls.id)).limit(20),
     db.select(callColumns).from(poliCalls).where(today).orderBy(desc(poliCalls.id)).limit(1),
   ]);
-  return { calls, lastCall: lastCall ?? currentFromSimrs(rows), cursor: Math.max(afterId ?? 0, lastCall?.id ?? 0), rows };
+  return { calls, lastCall: lastCall ?? currentFromSimrs(kdPoli ? rows.filter((r) => r.kdPoli === kdPoli) : rows), cursor: Math.max(afterId ?? 0, lastCall?.id ?? 0), rows };
 }
 
 /**

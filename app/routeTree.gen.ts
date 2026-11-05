@@ -12,6 +12,7 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as Kiosk2Import } from './routes/kiosk2'
+import { Route as DisplayPoliMataImport } from './routes/display-poli-mata'
 import { Route as DisplayPoliImport } from './routes/display-poli'
 import { Route as DisplayKamarImport } from './routes/display-kamar'
 import { Route as DisplayImport } from './routes/display'
@@ -32,6 +33,12 @@ import { Route as KioskQrVisitIdImport } from './routes/kiosk/qr.$visitId'
 const Kiosk2Route = Kiosk2Import.update({
   id: '/kiosk2',
   path: '/kiosk2',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DisplayPoliMataRoute = DisplayPoliMataImport.update({
+  id: '/display-poli-mata',
+  path: '/display-poli-mata',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -151,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DisplayPoliImport
       parentRoute: typeof rootRoute
     }
+    '/display-poli-mata': {
+      id: '/display-poli-mata'
+      path: '/display-poli-mata'
+      fullPath: '/display-poli-mata'
+      preLoaderRoute: typeof DisplayPoliMataImport
+      parentRoute: typeof rootRoute
+    }
     '/kiosk2': {
       id: '/kiosk2'
       path: '/kiosk2'
@@ -238,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/display': typeof DisplayRoute
   '/display-kamar': typeof DisplayKamarRoute
   '/display-poli': typeof DisplayPoliRoute
+  '/display-poli-mata': typeof DisplayPoliMataRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
@@ -256,6 +271,7 @@ export interface FileRoutesByTo {
   '/display': typeof DisplayRoute
   '/display-kamar': typeof DisplayKamarRoute
   '/display-poli': typeof DisplayPoliRoute
+  '/display-poli-mata': typeof DisplayPoliMataRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
@@ -275,6 +291,7 @@ export interface FileRoutesById {
   '/display': typeof DisplayRoute
   '/display-kamar': typeof DisplayKamarRoute
   '/display-poli': typeof DisplayPoliRoute
+  '/display-poli-mata': typeof DisplayPoliMataRoute
   '/kiosk2': typeof Kiosk2Route
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/kunjungan': typeof AdminKunjunganRoute
@@ -295,6 +312,7 @@ export interface FileRouteTypes {
     | '/display'
     | '/display-kamar'
     | '/display-poli'
+    | '/display-poli-mata'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
@@ -312,6 +330,7 @@ export interface FileRouteTypes {
     | '/display'
     | '/display-kamar'
     | '/display-poli'
+    | '/display-poli-mata'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
@@ -329,6 +348,7 @@ export interface FileRouteTypes {
     | '/display'
     | '/display-kamar'
     | '/display-poli'
+    | '/display-poli-mata'
     | '/kiosk2'
     | '/admin/dashboard'
     | '/admin/kunjungan'
@@ -348,6 +368,7 @@ export interface RootRouteChildren {
   DisplayRoute: typeof DisplayRoute
   DisplayKamarRoute: typeof DisplayKamarRoute
   DisplayPoliRoute: typeof DisplayPoliRoute
+  DisplayPoliMataRoute: typeof DisplayPoliMataRoute
   Kiosk2Route: typeof Kiosk2Route
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminKunjunganRoute: typeof AdminKunjunganRoute
@@ -366,6 +387,7 @@ const rootRouteChildren: RootRouteChildren = {
   DisplayRoute: DisplayRoute,
   DisplayKamarRoute: DisplayKamarRoute,
   DisplayPoliRoute: DisplayPoliRoute,
+  DisplayPoliMataRoute: DisplayPoliMataRoute,
   Kiosk2Route: Kiosk2Route,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminKunjunganRoute: AdminKunjunganRoute,
@@ -393,6 +415,7 @@ export const routeTree = rootRoute
         "/display",
         "/display-kamar",
         "/display-poli",
+        "/display-poli-mata",
         "/kiosk2",
         "/admin/dashboard",
         "/admin/kunjungan",
@@ -417,6 +440,9 @@ export const routeTree = rootRoute
     },
     "/display-poli": {
       "filePath": "display-poli.tsx"
+    },
+    "/display-poli-mata": {
+      "filePath": "display-poli-mata.tsx"
     },
     "/kiosk2": {
       "filePath": "kiosk2.tsx"
