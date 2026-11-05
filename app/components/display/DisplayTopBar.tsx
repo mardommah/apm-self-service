@@ -24,13 +24,13 @@ export function DisplayTopBar({ eyebrow = "DISPLAY ANTREAN LOKET" }: { eyebrow?:
         <img src="/logo-klinik-s.png" alt="Klinik Syamsinar" className="h-[58px] w-[170px] object-contain" />
         <span aria-hidden className="h-[52px] w-px bg-bp-border" />
         <div className="flex flex-col gap-1.5">
-          <span className="font-caption text-[13px] tracking-[1.4px] text-bp-muted">{eyebrow}</span>
+          <span className="font-caption text-[13px] tracking-[1.4px] text-bp-ink">{eyebrow}</span>
           <span className="font-display text-[28px] font-medium tracking-[-0.5px] text-bp-ink">Klinik Syamsinar Maros</span>
         </div>
       </div>
       <div className="flex items-center gap-6">
         <div className="flex flex-col items-end gap-1 font-caption leading-none">
-          <span className="text-[20px] text-bp-muted">{now && format(now, { weekday: "long" })}</span>
+          <span className="text-[20px] text-bp-ink">{now && format(now, { weekday: "long" })}</span>
           <span className="text-[26px] text-bp-ink">
             {now && format(now, { day: "2-digit", month: "short", year: "numeric" }).replace(".", "")}
           </span>

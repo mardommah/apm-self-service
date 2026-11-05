@@ -68,7 +68,7 @@ export function DisplayKamarScreen({ initial }: { initial: DisplayKamarData | nu
                 <DisplayKamarList kamar={data.kamar} />
               </>
             ) : (
-              <div className="grid flex-1 place-items-center font-body text-[22px] text-bp-muted">Data SIMRS tidak dapat dimuat</div>
+              <div className="grid flex-1 place-items-center font-body text-[22px] text-bp-ink">Data SIMRS tidak dapat dimuat</div>
             )}
           </aside>
         </main>
