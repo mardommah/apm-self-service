@@ -69,7 +69,9 @@ type Seen = { noRawat: string; status: string };
 
 /**
  * Turns antripoli snapshots into call events. SIMRS writes one row per doctor+poli: a new no_rawat in
- * status 1/2 is a new call, the same no_rawat going back to status 1 is a recall.
+ * status 1/2/3 is a new call, the same no_rawat going from 3 back to 1/2 (or 2 back to 1) is a recall.
+ * Status 3 counts too: the old PHP display flips every 2 s (picked row 1→2, all other 2→3), so with several
+ * polis calling at once a call can pass 1→2→3 between two snapshots.
  * The first snapshot only seeds (no announcements for calls made before this server started).
  */
 export function createPoliCallDetector() {
@@ -80,9 +82,10 @@ export function createPoliCallDetector() {
     seen = next;
     if (!prev) return [];
     return rows.filter((r) => {
-      if (r.status !== "1" && r.status !== "2") return false;
+      if (r.status !== "1" && r.status !== "2" && r.status !== "3") return false;
       const before = prev.get(`${r.kdDokter}|${r.kdPoli}`);
-      return !before || before.noRawat !== r.noRawat || (r.status === "1" && before.status !== "1");
+      if (!before || before.noRawat !== r.noRawat) return true;
+      return (r.status === "1" && before.status !== "1") || (r.status === "2" && before.status === "3");
     });
   };
 }

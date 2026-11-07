@@ -24,8 +24,14 @@ test("detector seeds first snapshot, then reports new patient and recall", () =>
   expect(detect([row("D1", "r3", "2")]).map((r) => r.noRawat)).toEqual(["r3"]);
   // recall: same patient back to status 1
   expect(detect([row("D1", "r3", "1")]).map((r) => r.noRawat)).toEqual(["r3"]);
-  // finished (3) is never a call
+  // old PHP display passed 1 -> 2 -> 3 between snapshots: new patient still detected
+  expect(detect([row("D1", "r4", "3")]).map((r) => r.noRawat)).toEqual(["r4"]);
+  // same patient staying 3, or 0 (not called), is no call
   expect(detect([row("D1", "r4", "3")])).toEqual([]);
+  expect(detect([row("D1", "r5", "0")])).toEqual([]);
+  // recall whose status 1 was missed (3 -> 2)
+  expect(detect([row("D1", "r4", "3")]).map((r) => r.noRawat)).toEqual(["r4"]);
+  expect(detect([row("D1", "r4", "2")]).map((r) => r.noRawat)).toEqual(["r4"]);
 });
 
 test("name cleanup, labels and speech text", () => {
