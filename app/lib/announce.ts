@@ -24,7 +24,8 @@ export function prayerAnnouncementText(prayerLabel: string) {
 }
 
 // ResponsiveVoice that never starts (key not valid for this domain, script/network blocked) falls back to the browser voice.
-const RV_START_TIMEOUT_MS = 4_000;
+// Without a native Indonesian voice ResponsiveVoice downloads an MP3 per text (~1 s, longer on a busy clinic network).
+const RV_START_TIMEOUT_MS = 8_000;
 
 /** Resolves when speech ends (or after a length-based limit if the engine never reports the end). */
 export function speak(text: string, options: { pitch?: number } = {}): Promise<void> {
@@ -67,27 +68,39 @@ export function speak(text: string, options: { pitch?: number } = {}): Promise<v
   });
 }
 
-/** Browser speechSynthesis, preferring an Indonesian voice. */
+const indonesianVoices = () =>
+  "speechSynthesis" in window ? window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("id")) : [];
+const localIndonesianVoice = () => indonesianVoices().find((v) => v.localService);
+
+// Chrome drops the onend of an utterance that was garbage collected mid-speech: keep the current one referenced.
+let currentUtterance: SpeechSynthesisUtterance | null = null;
+
+/** Browser speechSynthesis, preferring an offline Indonesian voice, then an online one ("Google Bahasa Indonesia"). */
 function browserSpeak(text: string, pitch: number, done: () => void) {
   if (!("speechSynthesis" in window)) {
     console.warn("[announce] no speech engine available");
     return done();
   }
   const utterance = new SpeechSynthesisUtterance(text);
+  currentUtterance = utterance;
   utterance.lang = "id-ID";
-  const voice = window.speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith("id"));
+  const voice = localIndonesianVoice() ?? indonesianVoices()[0];
   if (voice) utterance.voice = voice;
   else console.warn("[announce] no Indonesian browser voice installed; using the default voice");
   utterance.rate = 0.9;
   utterance.pitch = pitch;
   utterance.volume = 1;
-  utterance.onend = done;
+  utterance.onend = () => {
+    if (currentUtterance === utterance) currentUtterance = null;
+    done();
+  };
   utterance.onerror = (event) => {
     console.warn("[announce] browser speech error:", event.error);
     done();
   };
   window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utterance);
+  // Chrome sometimes silently ignores speak() issued in the same tick as cancel().
+  setTimeout(() => window.speechSynthesis.speak(utterance), 50);
 }
 
 let audioContext: AudioContext | null = null;
