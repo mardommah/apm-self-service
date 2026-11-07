@@ -1,6 +1,9 @@
 // Waiting-room voice announcements: ResponsiveVoice "Indonesian Female", browser speechSynthesis as fallback.
 
 const RV_VOICE = "Indonesian Female";
+// Firmer call voice: slightly lower pitch and normal speed (was 1 / 0.9). Below ~0.85 the female voice starts to sound male.
+const CALL_PITCH = 0.9;
+const CALL_RATE = 1;
 const MAX_SPEAK_MS = 15_000;
 
 /** `key` comes from the server at runtime (getDisplayAction), so a build without the env var still gets it. */
@@ -29,7 +32,7 @@ const RV_START_TIMEOUT_MS = 8_000;
 
 /** Resolves when speech ends (or after a length-based limit if the engine never reports the end). */
 export function speak(text: string, options: { pitch?: number } = {}): Promise<void> {
-  const pitch = options.pitch ?? 1;
+  const pitch = options.pitch ?? CALL_PITCH;
   return new Promise((resolve) => {
     // Long announcements (prayer) need more than the 15s a queue call takes.
     const timer = setTimeout(done, Math.max(MAX_SPEAK_MS, text.length * 120));
@@ -53,7 +56,7 @@ export function speak(text: string, options: { pitch?: number } = {}): Promise<v
     }, RV_START_TIMEOUT_MS);
     rv.cancel();
     rv.speak(text, RV_VOICE, {
-      rate: 0.9,
+      rate: CALL_RATE,
       pitch,
       volume: 1,
       onstart: () => (started = true),
@@ -87,7 +90,7 @@ function browserSpeak(text: string, pitch: number, done: () => void) {
   const voice = localIndonesianVoice() ?? indonesianVoices()[0];
   if (voice) utterance.voice = voice;
   else console.warn("[announce] no Indonesian browser voice installed; using the default voice");
-  utterance.rate = 0.9;
+  utterance.rate = CALL_RATE;
   utterance.pitch = pitch;
   utterance.volume = 1;
   utterance.onend = () => {
