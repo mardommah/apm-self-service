@@ -3,13 +3,8 @@ import { useEffect, useState } from "react";
 export const DISPLAY_WIDTH = 1920;
 export const DISPLAY_HEIGHT = 1080;
 
-/** DESIGN.md §9.1: the TV layout is drawn at 1920×1080 and scaled as a whole to fit smaller screens. */
-export function useDisplayScale() {
-  return useDisplayFill().scale;
-}
-
 /**
- * Same scale, plus a canvas size (in design px) that fills the whole viewport: a non-16:9 window
+ * DESIGN.md §9.1: the TV layout is drawn at 1920×1080 and scaled as a whole to fit smaller screens. Plus a canvas size (in design px) that fills the whole viewport: a non-16:9 window
  * widens or heightens the canvas instead of showing black bars. Never smaller than 1920×1080.
  */
 export function useDisplayFill() {

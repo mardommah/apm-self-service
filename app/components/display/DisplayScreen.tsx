@@ -14,7 +14,7 @@ import { DisplayTopBar } from "./DisplayTopBar";
 import { DisplayVideo } from "./DisplayVideo";
 import { useCallAnnouncer } from "./useCallAnnouncer";
 import { nextPrayerCall, usePrayerAlarm } from "./usePrayerAlarm";
-import { useDisplayScale } from "./useDisplayScale";
+import { useDisplayFill } from "./useDisplayScale";
 
 export function DisplayScreen({ initial }: { initial: DisplayData }) {
   const [data, setData] = useState(initial);
@@ -25,7 +25,7 @@ export function DisplayScreen({ initial }: { initial: DisplayData }) {
   const { active, activePrayer, flashId, enqueue, enqueuePrayer } = useCallAnnouncer();
   usePrayerAlarm(data.prayer, enqueuePrayer);
   useEffect(() => loadResponsiveVoice(data.responsiveVoiceKey), [data.responsiveVoiceKey]);
-  const scale = useDisplayScale();
+  const { scale, width, height } = useDisplayFill();
   // Re-evaluated on every poll, so the prayer line rolls over at midnight; memoized so the marquee is not restarted each poll.
   const today = displayToday();
   const dayKey = `${today.year}-${today.month}-${today.day}`;
@@ -72,7 +72,7 @@ export function DisplayScreen({ initial }: { initial: DisplayData }) {
 
   return (
     <div className="grid h-dvh w-screen place-items-center overflow-hidden bg-bp-ink">
-    <div style={{ zoom: scale }} className="flex h-[1080px] w-[1920px] shrink-0 flex-col overflow-hidden bg-bp-surface-2">
+    <div style={{ zoom: scale, width, height }} className="flex shrink-0 flex-col overflow-hidden bg-bp-surface-2">
       <DisplayTopBar />
       <main className="flex min-h-0 flex-1">
         <DisplayVideo playlist={data.playlist} ducked={active !== null || activePrayer !== null} />
