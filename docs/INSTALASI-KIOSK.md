@@ -35,6 +35,18 @@ Auto start saat PC nyala (profil Chrome terpisah, watchdog buka ulang bila ditut
 
 Playlist video diatur di Pengaturan Aplikasi admin ("Playlist YouTube display").
 
+## PC TV Display Antrean Poli (`/display-poli`)
+
+Panggilan poli dari SIMRS (`antripoli`). Wajib pakai flag autoplay: tanpa flag, Chrome memblokir bel dan suara
+sampai layar diklik (popup panggilan tetap muncul, tapi tanpa bunyi), dan setiap kali PC/Chrome dinyalakan ulang
+layar harus diklik lagi.
+
+```
+chrome.exe --kiosk --autoplay-policy=no-user-gesture-required http://<server>/display-poli
+```
+
+Tutup semua jendela Chrome sebelum menjalankan shortcut ini: bila Chrome sudah terbuka, flag diabaikan.
+
 ## PC TV Jadwal Dokter & Kamar Rawat Inap (`/display-kamar`)
 
 Pengganti `webapps/bed7.php`. Tanpa suara/video, tanpa login. Data dibaca langsung dari DB SIMRS (`SIMRS_DB_*`),

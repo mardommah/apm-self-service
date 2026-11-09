@@ -16,7 +16,7 @@ export const getDisplayPoliMataAction = createServerFn({ method: "GET" })
       getPrayerSettings(),
     ]);
     const called = await getPoliMataCalled(lastCall);
-    const responsiveVoiceKey = process.env.RESPONSIVEVOICE_KEY ?? process.env.VITE_RESPONSIVEVOICE_KEY ?? "";
+    const responsiveVoiceKey = process.env.VITE_RESPONSIVEVOICE_KEY_MATA || process.env.RESPONSIVEVOICE_KEY || process.env.VITE_RESPONSIVEVOICE_KEY || "";
     const lastCallAgeMs = lastCall?.calledAt ? Date.now() - lastCall.calledAt.getTime() : null;
     return { calls, lastCall, lastCallAgeMs, cursor, called, operasi, playlist, prayer, responsiveVoiceKey, test: getPoliDisplayTest() };
   });

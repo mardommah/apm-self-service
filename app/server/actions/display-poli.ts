@@ -14,7 +14,7 @@ export const getDisplayPoliAction = createServerFn({ method: "GET" })
       getPrayerSettings(),
     ]);
     const board = await getPoliBoard(rows);
-    const responsiveVoiceKey = process.env.RESPONSIVEVOICE_KEY ?? process.env.VITE_RESPONSIVEVOICE_KEY ?? "";
+    const responsiveVoiceKey = process.env.VITE_RESPONSIVEVOICE_KEY_POLI || process.env.RESPONSIVEVOICE_KEY || process.env.VITE_RESPONSIVEVOICE_KEY || "";
     // Age by the server clock (the TV clock may be off): lets a reloaded TV finish a call it cut off.
     const lastCallAgeMs = lastCall?.calledAt ? Date.now() - lastCall.calledAt.getTime() : null;
     return { calls, lastCall, lastCallAgeMs, cursor, board, playlist, prayer, responsiveVoiceKey, test: getPoliDisplayTest() };
