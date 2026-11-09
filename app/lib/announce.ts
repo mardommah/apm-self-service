@@ -30,9 +30,47 @@ export function prayerAnnouncementText(prayerLabel: string) {
 // Without a native Indonesian voice ResponsiveVoice downloads an MP3 per text (~1 s, longer on a busy clinic network).
 const RV_START_TIMEOUT_MS = 8_000;
 
+const SERVER_TTS_START_TIMEOUT_MS = 8_000;
+
+/**
+ * MP3 from /api/tts (ResponsiveVoice SDK on the server, same "Indonesian Female" on every TV). Resolves false
+ * when it never starts (TTS not configured, no internet on the server, autoplay blocked) so the caller falls back.
+ */
+function serverSpeak(text: string, pitch: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const params = new URLSearchParams({ text, pitch: String(pitch), rate: String(CALL_RATE) });
+    const audio = new Audio(`/api/tts?${params}`);
+    let started = false;
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(startTimer);
+      clearTimeout(endTimer);
+      if (!ok) audio.pause();
+      resolve(ok);
+    };
+    const startTimer = setTimeout(() => started || (console.warn("[announce] server TTS did not start"), finish(false)), SERVER_TTS_START_TIMEOUT_MS);
+    const endTimer = setTimeout(() => finish(started), Math.max(MAX_SPEAK_MS, text.length * 120));
+    audio.onplaying = () => (started = true);
+    audio.onended = () => finish(true);
+    audio.onerror = () => {
+      console.warn("[announce] server TTS failed, using ResponsiveVoice/browser speech");
+      finish(started);
+    };
+    audio.play().catch(() => finish(false));
+  });
+}
+
 /** Resolves when speech ends (or after a length-based limit if the engine never reports the end). */
-export function speak(text: string, options: { pitch?: number } = {}): Promise<void> {
+export async function speak(text: string, options: { pitch?: number } = {}): Promise<void> {
   const pitch = options.pitch ?? CALL_PITCH;
+  if (await serverSpeak(text, pitch)) return;
+  return clientSpeak(text, pitch);
+}
+
+/** ResponsiveVoice in the browser, then browser speechSynthesis. */
+function clientSpeak(text: string, pitch: number): Promise<void> {
   return new Promise((resolve) => {
     // Long announcements (prayer) need more than the 15s a queue call takes.
     const timer = setTimeout(done, Math.max(MAX_SPEAK_MS, text.length * 120));
