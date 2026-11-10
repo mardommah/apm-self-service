@@ -1,0 +1,6 @@
+Windows Registry Editor Version 5.00
+
+; Izinkan display TV klinik memutar suara tanpa klik (Chrome policy AutoplayAllowlist).
+; Klik dua kali file ini sebagai Administrator, restart Chrome, cek di chrome://policy.
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\AutoplayAllowlist]
+"1"="http://192.168.1.127:3886"

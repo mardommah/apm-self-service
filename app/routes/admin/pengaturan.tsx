@@ -4,6 +4,7 @@ import { AdminHeader } from "~/components/admin/AdminHeader";
 import { AdminUsersPanel } from "~/components/admin/AdminUsersPanel";
 import { BpjsTestAccounts } from "~/components/admin/BpjsTestAccounts";
 import { DisplayCallTest } from "~/components/admin/DisplayCallTest";
+import { DokterLiburSettings } from "~/components/admin/DokterLiburSettings";
 import { PrayerTimesSettings } from "~/components/admin/PrayerTimesSettings";
 import { Button } from "~/components/ui/button";
 import { getDashboardDataAction } from "~/server/actions/dashboard-data";
@@ -378,6 +379,8 @@ function SettingsPage() {
 
             <DisplayCallTest token={token} />
             <DisplayCallTest token={token} target="poli" />
+
+            <DokterLiburSettings token={token} />
 
             <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border p-4">
               <div>

@@ -7,7 +7,7 @@ import { DISPLAY_TIMEZONE } from "./displayConfig";
 // Rows are at least 76px and grow for a wrapped doctor name or a second session; from this many schedules every font is compact.
 const COMPACT_FROM = 13;
 
-type Status = "praktik" | "terjadwal" | "selesai";
+type Status = "praktik" | "terjadwal" | "selesai" | "tutup" | "cuti";
 
 function nowHHmm() {
   return new Intl.DateTimeFormat("en-GB", { timeZone: DISPLAY_TIMEZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
@@ -15,6 +15,7 @@ function nowHHmm() {
 
 /** "HH:mm" strings compare correctly as text. Between two sessions the doctor is "terjadwal" again (next session). */
 export function jadwalStatus(row: JadwalRow, now: string): Status {
+  if (row.libur) return row.libur;
   if (row.sesi.some((s) => s.mulai <= now && now < s.selesai)) return "praktik";
   return row.sesi.some((s) => now < s.mulai) ? "terjadwal" : "selesai";
 }
@@ -23,6 +24,9 @@ const STYLE: Record<Status, { row: string; dot: string; no: string; name: string
   praktik: { row: "bg-bp-accent-ink border-bp-accent-ink", dot: "bg-[#4ADE80]", no: "text-[#BFDBFE]", name: "text-white", poli: "text-[#BFDBFE]", start: "text-white", end: "text-white", status: "text-white", dash: "bg-bp-sky", label: "SEDANG PRAKTIK" },
   terjadwal: { row: "bg-bp-surface border-bp-border", dot: "bg-bp-faint", no: "text-bp-ink", name: "text-bp-ink", poli: "text-bp-ink", start: "text-bp-ink", end: "text-bp-ink", status: "text-bp-ink", dash: "bg-bp-faint", label: "TERJADWAL" },
   selesai: { row: "bg-bp-surface-2 border-bp-border", dot: "bg-bp-faint", no: "text-bp-ink", name: "text-bp-ink", poli: "text-bp-ink", start: "text-bp-ink", end: "text-bp-ink", status: "text-bp-ink", dash: "bg-bp-faint", label: "SELESAI" },
+  // Marked by admin (Pengaturan → Dokter tutup/cuti); session times struck through.
+  tutup: { row: "bg-bp-surface-2 border-bp-border", dot: "bg-[#DC2626]", no: "text-bp-ink", name: "text-bp-ink", poli: "text-bp-ink", start: "text-bp-ink line-through", end: "text-bp-ink line-through", status: "text-[#B91C1C]", dash: "bg-bp-faint", label: "TUTUP" },
+  cuti: { row: "bg-bp-surface-2 border-bp-border", dot: "bg-[#DC2626]", no: "text-bp-ink", name: "text-bp-ink", poli: "text-bp-ink", start: "text-bp-ink line-through", end: "text-bp-ink line-through", status: "text-[#B91C1C]", dash: "bg-bp-faint", label: "CUTI" },
 };
 
 function useClockMinute() {

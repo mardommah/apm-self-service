@@ -3,8 +3,8 @@ import { getSimrsPool } from "../simrs";
 
 export type JadwalSesi = { mulai: string; selesai: string };
 /** One row per doctor + poli; a doctor with two sessions today (pagi & sore) has two `sesi`, sorted by start. */
-export type JadwalRow = { dokter: string; poli: string; kdPoli: string; sesi: JadwalSesi[] };
-type JadwalSlot = { kdDokter: string; dokter: string; poli: string; kdPoli: string } & JadwalSesi;
+export type JadwalRow = { kdDokter: string; dokter: string; poli: string; kdPoli: string; sesi: JadwalSesi[]; libur?: "tutup" | "cuti" };
+type JadwalSlot = Omit<JadwalRow, "sesi" | "libur"> & JadwalSesi;
 export type KamarRow = { kelas: string; label: string; kapasitas: number; terisi: number; tarif: number; tarifBeda: boolean };
 
 const HARI_KERJA = ["AKHAD", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
@@ -29,8 +29,8 @@ export function sortKamar(rows: KamarRow[]) {
 /** Merges SIMRS `jadwal` slots (one per session) into one row per doctor + poli; identical slots count once. Keeps slot order. */
 export function mergeJadwal(slots: JadwalSlot[]): JadwalRow[] {
   const rows = new Map<string, JadwalRow>();
-  for (const { kdDokter, mulai, selesai, ...row } of slots) {
-    const key = `${kdDokter}|${row.kdPoli}`;
+  for (const { mulai, selesai, ...row } of slots) {
+    const key = `${row.kdDokter}|${row.kdPoli}`;
     const current = rows.get(key) ?? rows.set(key, { ...row, sesi: [] }).get(key)!;
     if (!current.sesi.some((s) => s.mulai === mulai && s.selesai === selesai)) current.sesi.push({ mulai, selesai });
   }

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { hariKerja, kelasLabel, mergeJadwal, sortKamar } from "./display-kamar";
+import { tanggalWita, validateLibur } from "./dokter-libur";
 
 test("hariKerja uses WITA date", () => {
   // 2026-11-04 17:00 UTC = Thu 01:00 WITA
@@ -26,4 +27,13 @@ test("mergeJadwal: one row per doctor + poli, sessions sorted, duplicates once",
     ["dr D2", "G", "09:00-11:00"],
     ["dr D1", "A", "13:00-14:00"],
   ]);
+});
+
+test("validateLibur", () => {
+  const ok = { kdDokter: "D1", jenis: "cuti", tanggalMulai: "2026-11-10", tanggalSelesai: "2026-11-12", keterangan: "  " };
+  expect(validateLibur(ok)).toEqual({ kdDokter: "D1", jenis: "cuti", tanggalMulai: "2026-11-10", tanggalSelesai: "2026-11-12", keterangan: null });
+  expect(() => validateLibur({ ...ok, jenis: "x" })).toThrow("JENIS_INVALID");
+  expect(() => validateLibur({ ...ok, tanggalSelesai: "2026-11-09" })).toThrow("TANGGAL_INVALID");
+  expect(() => validateLibur({ ...ok, kdDokter: "" })).toThrow("DOKTER_INVALID");
+  expect(tanggalWita(new Date("2026-11-09T17:00:00Z"))).toBe("2026-11-10");
 });

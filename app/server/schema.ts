@@ -120,6 +120,17 @@ export const poliCalls = mysqlTable(
   })
 );
 
+// Doctor closed/leave marks for /display-kamar (migration 0020), see app/server/functions/dokter-libur.ts.
+export const dokterLibur = mysqlTable("dokter_libur", {
+  id: int("id").autoincrement().primaryKey(),
+  kdDokter: varchar("kd_dokter", { length: 20 }).notNull(),
+  jenis: mysqlEnum("jenis", ["tutup", "cuti"]).notNull(),
+  tanggalMulai: date("tanggal_mulai", { mode: "string" }).notNull(),
+  tanggalSelesai: date("tanggal_selesai", { mode: "string" }).notNull(),
+  keterangan: varchar("keterangan", { length: 100 }),
+  createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const bpjsWorkflows = mysqlTable(
   "bpjs_kiosk_workflows",
   {

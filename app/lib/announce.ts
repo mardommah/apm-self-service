@@ -58,7 +58,10 @@ function serverSpeak(text: string, pitch: number): Promise<boolean> {
       console.warn("[announce] server TTS failed, using ResponsiveVoice/browser speech");
       finish(started);
     };
-    audio.play().catch(() => finish(false));
+    audio.play().catch((error) => {
+      console.warn("[announce] server TTS blocked:", error?.name ?? error);
+      finish(false);
+    });
   });
 }
 

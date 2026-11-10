@@ -35,6 +35,13 @@ Auto start saat PC nyala (profil Chrome terpisah, watchdog buka ulang bila ditut
 
 Playlist video diatur di Pengaturan Aplikasi admin ("Playlist YouTube display").
 
+## Izin suara Chrome di semua PC TV
+
+Tanpa izin autoplay, Chrome memblokir bel & suara panggilan sampai layar diklik (setting situs "Sound: Allow" tidak cukup).
+Jalankan `tools/chrome-autoplay/chrome-autoplay.reg` sebagai Administrator di tiap PC TV (policy `AutoplayAllowlist`
+untuk `http://192.168.1.127:3886`; ganti alamat di file bila server pindah), restart Chrome, cek `chrome://policy`.
+Alternatif: flag `--autoplay-policy=no-user-gesture-required` di shortcut Chrome.
+
 ## PC TV Display Antrean Poli (`/display-poli`)
 
 Panggilan poli dari SIMRS (`antripoli`). Wajib pakai flag autoplay: tanpa flag, Chrome memblokir bel dan suara
