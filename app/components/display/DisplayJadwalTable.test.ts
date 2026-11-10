@@ -15,3 +15,9 @@ test("jadwalStatus: admin libur mark overrides session time", () => {
   expect(jadwalStatus({ ...row, libur: "cuti" }, "09:00")).toBe("cuti");
   expect(jadwalStatus({ ...row, libur: "tutup" }, "07:00")).toBe("tutup");
 });
+
+test("jadwalStatus skips sessions closed from the sheet", () => {
+  const row = { kdDokter: "D1", dokter: "dr A", poli: "Umum", kdPoli: "U", sesi: [{ mulai: "08:00", selesai: "12:00", tutup: true }, { mulai: "16:00", selesai: "20:00" }] };
+  expect(jadwalStatus(row, "09:00")).toBe("terjadwal");
+  expect(jadwalStatus({ ...row, sesi: [row.sesi[0]] }, "09:00")).toBe("tutup");
+});

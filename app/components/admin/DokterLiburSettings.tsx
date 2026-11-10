@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import type { DokterLibur, DokterOption } from "~/server/functions/dokter-libur";
+import type { SheetMatch } from "~/server/functions/jadwal-sheet";
 import { addDokterLiburAction, deleteDokterLiburAction, getDokterLiburAction } from "~/server/actions/dokter-libur";
 
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Makassar" });
@@ -10,6 +11,7 @@ const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("id-ID",
 export function DokterLiburSettings({ token }: { token: string }) {
   const [dokter, setDokter] = useState<DokterOption[]>([]);
   const [libur, setLibur] = useState<DokterLibur[]>([]);
+  const [sheet, setSheet] = useState<{ enabled: boolean; error: string | null; matches: SheetMatch[] } | null>(null);
   const [form, setForm] = useState({ kdDokter: "", jenis: "tutup", tanggalMulai: today(), tanggalSelesai: today(), keterangan: "" });
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -19,6 +21,7 @@ export function DokterLiburSettings({ token }: { token: string }) {
       const data = await getDokterLiburAction({ data: { token } });
       setDokter(data.dokter);
       setLibur(data.libur);
+      setSheet(data.sheet);
       setLoadError(false);
     } catch {
       setLoadError(true);
@@ -106,6 +109,20 @@ export function DokterLiburSettings({ token }: { token: string }) {
           Tandai
         </Button>
       </div>
+
+      {sheet?.enabled && (
+        <div className="space-y-1 rounded-md border bg-gray-50 p-3 text-sm">
+          <p className="font-medium text-gray-700">Dari spreadsheet "Perubahan Jadwal DPJP" hari ini (TUTUP + ACC)</p>
+          {sheet.error && <p className="text-red-600">Spreadsheet gagal dibaca ({sheet.error}). Cek tab bulan ini & akses link.</p>}
+          {!sheet.error && sheet.matches.length === 0 && <p className="text-gray-500">Tidak ada dokter tutup hari ini.</p>}
+          {sheet.matches.map((m, i) => (
+            <p key={i} className={m.kdDokter ? "text-gray-700" : "text-orange-700"}>
+              {m.kdDokter ? "✓" : "⚠"} {m.dokter} · {m.mulai}–{m.selesai} · {m.alasan}
+              {m.kdDokter ? ` → ${m.matchedDokter}` : " → tidak cocok dengan jadwal SIMRS hari ini (tidak tampil di TV; tandai manual bila perlu)"}
+            </p>
+          ))}
+        </div>
+      )}
 
       {libur.length > 0 && (
         <ul className="divide-y rounded-md border text-sm">

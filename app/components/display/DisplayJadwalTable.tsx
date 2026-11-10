@@ -16,8 +16,10 @@ function nowHHmm() {
 /** "HH:mm" strings compare correctly as text. Between two sessions the doctor is "terjadwal" again (next session). */
 export function jadwalStatus(row: JadwalRow, now: string): Status {
   if (row.libur) return row.libur;
-  if (row.sesi.some((s) => s.mulai <= now && now < s.selesai)) return "praktik";
-  return row.sesi.some((s) => now < s.mulai) ? "terjadwal" : "selesai";
+  const sesi = row.sesi.filter((s) => !s.tutup);
+  if (!sesi.length) return "tutup";
+  if (sesi.some((s) => s.mulai <= now && now < s.selesai)) return "praktik";
+  return sesi.some((s) => now < s.mulai) ? "terjadwal" : "selesai";
 }
 
 const STYLE: Record<Status, { row: string; dot: string; no: string; name: string; poli: string; start: string; end: string; status: string; dash: string; label: string }> = {
@@ -84,9 +86,10 @@ export function DisplayJadwalTable({ jadwal, error }: { jadwal: JadwalRow[] | nu
                   <span className={`flex w-[220px] shrink-0 flex-col justify-center gap-1 font-display font-medium leading-tight tracking-[-0.5px] tabular-nums ${compact ? "text-[22px]" : "text-[28px]"}`}>
                     {row.sesi.map((sesi) => (
                       <span key={sesi.mulai} className="flex items-center gap-2">
-                        <span className={s.start}>{sesi.mulai}</span>
+                        <span className={`${s.start} ${sesi.tutup ? "line-through decoration-[#DC2626] decoration-2" : ""}`}>{sesi.mulai}</span>
                         <span aria-label="sampai" className={`h-0.5 w-3.5 ${s.dash}`} />
-                        <span className={s.end}>{sesi.selesai}</span>
+                        <span className={`${s.end} ${sesi.tutup ? "line-through decoration-[#DC2626] decoration-2" : ""}`}>{sesi.selesai}</span>
+                        {sesi.tutup && row.sesi.length > 1 && <span className="font-caption text-sm font-bold tracking-[1px] text-[#B91C1C]">TUTUP</span>}
                       </span>
                     ))}
                   </span>

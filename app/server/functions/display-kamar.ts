@@ -1,7 +1,8 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { getSimrsPool } from "../simrs";
 
-export type JadwalSesi = { mulai: string; selesai: string };
+/** `tutup`: session closed in the "PERUBAHAN JADWAL DPJP" sheet (see jadwal-sheet.ts). */
+export type JadwalSesi = { mulai: string; selesai: string; tutup?: boolean };
 /** One row per doctor + poli; a doctor with two sessions today (pagi & sore) has two `sesi`, sorted by start. */
 export type JadwalRow = { kdDokter: string; dokter: string; poli: string; kdPoli: string; sesi: JadwalSesi[]; libur?: "tutup" | "cuti" };
 type JadwalSlot = Omit<JadwalRow, "sesi" | "libur"> & JadwalSesi;
