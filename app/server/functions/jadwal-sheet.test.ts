@@ -68,4 +68,7 @@ test("applySheetTutup: overlapping sessions closed, whole row → libur, manual 
   expect(jadwal[1].sesi.map((s) => Boolean(s.tutup))).toEqual([false, true]);
   expect(jadwal[2].libur).toBe("cuti");
   expect(matches.map((m) => m.kdDokter)).toEqual(["D035", "D017", null]);
+  // Sheet hours not overlapping SIMRS jadwal (09:30–12:30 vs 13:00–16:00) → whole day closed.
+  const geser = applySheetTutup([row("D011", "drg. Astrini Desintha Iraniza", [["13:00", "16:00"]])], [{ dokter: "drg. Astrini Desintha Iraniza, S.Kg", mulai: "09:30", selesai: "12:30", jenis: "cuti", alasan: "CUTI" }]);
+  expect(geser.jadwal[0].libur).toBe("cuti");
 });

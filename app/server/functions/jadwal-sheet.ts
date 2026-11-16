@@ -121,8 +121,10 @@ export function applySheetTutup(jadwal: JadwalRow[], tutup: SheetTutup[]): { jad
   const result = jadwal.map((row): JadwalRow => {
     const own = matches.filter((m) => m.kdDokter === row.kdDokter);
     if (!own.length || row.libur) return row;
-    const sesi = row.sesi.map((s) => (own.some((m) => m.mulai < s.selesai && s.mulai < m.selesai) ? { ...s, tutup: true } : s));
-    if (!sesi.some((s) => s.tutup)) return row;
+    const overlap = row.sesi.map((s) => own.some((m) => m.mulai < s.selesai && s.mulai < m.selesai));
+    // Sheet JAM PRAKTEK often differs from SIMRS jadwal (09:30–12:30 vs 13:00–16:00); no overlap at all → whole day closed.
+    const tutupSemua = !overlap.some(Boolean);
+    const sesi = row.sesi.map((s, i) => (tutupSemua || overlap[i] ? { ...s, tutup: true } : s));
     const libur: JadwalRow["libur"] = sesi.every((s) => s.tutup) ? (own.some((m) => m.jenis === "cuti") ? "cuti" : "tutup") : undefined;
     return { ...row, sesi, ...(libur && { libur }) };
   });
