@@ -10,13 +10,12 @@ type PreviewResult = { ok: true; preview: Preview } | { ok: false; message: stri
 
 export function GeneralLoketQueue({ patientStatus, onBack }: { patientStatus: PatientStatus; onBack: () => void }) {
   const [loading, setLoading] = useState(false);
-  // false: no SIMRS preview (unavailable, or existing patients who get an app number); taking a number still works.
-  const [preview, setPreview] = useState<Preview | null | false>(patientStatus === "lama" ? false : null);
+  // false: preview unavailable; taking a number still works.
+  const [preview, setPreview] = useState<Preview | null | false>(null);
   const [queue, setQueue] = useState<Queue | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (patientStatus === "lama") return;
     let active = true;
     void (kioskAction({ data: { action: "general-loket-preview" } }) as Promise<PreviewResult>)
       .then((result) => {

@@ -20,7 +20,7 @@ const ERRORS: Record<string, string> = {
 /** Windows/OS notification via the browser; undefined outside a secure context (HTTPS/localhost) or during SSR. */
 const osNotification = () => (typeof window !== "undefined" && "Notification" in window ? Notification : undefined);
 
-/** Pemanggil Pasien BPJS & Umum (mLITE Loket, A) dan Customer Service (mLITE CS, B), mirip halaman pemanggil mLITE. */
+/** Pemanggil loket: satu kartu per layanan di kiosk (label dari `services.label`), mirip halaman pemanggil mLITE. */
 export function LoketCaller({ token, loket, onChange }: { token: string; loket: number; onChange: () => void }) {
   const [cards, setCards] = useState<LoketCallerState>([]);
   const [busy, setBusy] = useState(false);

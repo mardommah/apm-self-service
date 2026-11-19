@@ -1,13 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createQueueCall } from "../functions/calls";
-import { findNextVisit, findVisitByNumber, getLoketCallerState, saveVisitRm } from "../functions/loket-caller";
-import { LOKET_SERVICE_CODES } from "../functions/visits";
+import { findNextVisit, findVisitByNumber, getLoketCallerState, isLoketService, saveVisitRm } from "../functions/loket-caller";
 import { requireAdminToken } from "./admin-auth";
 
 type CallInput = { token: string; serviceCode: string; loket: number; number?: string };
 
 function validateCall(data: CallInput) {
-  if (!LOKET_SERVICE_CODES.includes(data.serviceCode)) throw new Error("SERVICE_INVALID");
   if (!Number.isInteger(data.loket) || data.loket < 1 || data.loket > 99) throw new Error("LOKET_INVALID");
   return data;
 }
@@ -24,6 +22,7 @@ export const callLoketAction = createServerFn({ method: "POST" })
   .validator(validateCall)
   .handler(async ({ data }) => {
     requireAdminToken(data.token);
+    if (!(await isLoketService(data.serviceCode))) throw new Error("SERVICE_INVALID");
     // Picked inside the call lock: two lokets pressing "Berikutnya" together get different tickets.
     const result = await createQueueCall(
       () => (data.number ? findVisitByNumber(data.serviceCode, data.number) : findNextVisit(data.serviceCode)),

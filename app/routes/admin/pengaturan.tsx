@@ -19,7 +19,7 @@ import {
   updateKioskReturnSecondsAction,
   updateServiceQueuePrefixAction,
 } from "~/server/actions/dashboard-settings";
-import { DEFAULT_QUEUE_PREFIX, QUEUE_PREFIXES } from "~/lib/queue-prefix";
+import { DEFAULT_QUEUE_PREFIX, QUEUE_PREFIXES, serviceQueueLetter } from "~/lib/queue-prefix";
 
 export const Route = createFileRoute("/admin/pengaturan")({
   head: () => ({ meta: [{ title: "Pengaturan Aplikasi · Klinik Syamsinar" }] }),
@@ -298,7 +298,22 @@ function SettingsPage() {
             <div className="mt-4 rounded-lg border p-4">
               <p className="font-medium text-gray-800">Prefix nomor antrean</p>
               <p className="text-sm text-gray-500">
-                A = antrean Loket, B = antrean CS di SIMRS. Tiket tampil mis. A001, di SIMRS tersimpan nomor 1.
+                Huruf di tiket per layanan, sama untuk pasien baru & lama. Nomor berurut harian per huruf, mis. D001.
+              </p>
+              <ul className="mt-3 divide-y">
+                {data.services.map((service) => (
+                  <li key={service.code} className="flex items-center justify-between gap-4 py-2">
+                    <span className="text-sm text-gray-700">{service.label}</span>
+                    <span className="font-mono text-sm font-semibold">{serviceQueueLetter(service.code)}001</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-4 rounded-lg border p-4">
+              <p className="font-medium text-gray-800">Antrean SIMRS pasien baru</p>
+              <p className="text-sm text-gray-500">
+                Tiket pasien baru juga dicatat di antrean loket SIMRS: A = antrean Loket, B = antrean CS. Tidak mengubah huruf di tiket.
               </p>
               <div className="mt-3 divide-y">
                 {data.services
@@ -310,11 +325,11 @@ function SettingsPage() {
                         value={service.queuePrefix ?? DEFAULT_QUEUE_PREFIX[service.code]}
                         disabled={savingQueuePrefix}
                         onChange={(event) => handleQueuePrefix(service.code, event.target.value)}
-                        aria-label={`Prefix antrean ${service.label}`}
+                        aria-label={`Antrean SIMRS ${service.label}`}
                         className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold disabled:opacity-60"
                       >
                         {QUEUE_PREFIXES.map((prefix) => (
-                          <option key={prefix} value={prefix}>{prefix}xx</option>
+                          <option key={prefix} value={prefix}>{prefix === "A" ? "A · Loket" : "B · CS"}</option>
                         ))}
                       </select>
                     </label>

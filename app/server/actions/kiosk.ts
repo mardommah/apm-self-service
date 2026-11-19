@@ -9,7 +9,7 @@ import {
   getKioskReturnSeconds,
 } from "../functions/settings";
 import { createVisit, getAllServices, lastAppQueueNumber } from "../functions/visits";
-import { getGeneralLoketPreview } from "../simrs";
+import { serviceQueueLetter } from "~/lib/queue-prefix";
 import type { Service } from "../schema";
 import { kioskErrorMessage } from "./kiosk-errors";
 
@@ -102,7 +102,7 @@ export const kioskAction = createServerFn({ method: "POST" })
         return { ok: false as const, message: "Loket tidak valid." };
       }
       try {
-        // Saved as an app visit too, so the admin caller sees it: Loket 1 → Umum card (mLITE Loket), Loket 2 → CS card (mLITE CS).
+        // Loket 1 → Umum card (D, mLITE Loket for new patients), Loket 2 → CS card (C, mLITE CS for new patients).
         const visit = await createVisit(data.loket === 1 ? "poli_umum" : "customer_service", undefined, undefined, {
           mliteQueueType: data.loket,
           patientStatus: data.patientStatus,
@@ -115,8 +115,13 @@ export const kioskAction = createServerFn({ method: "POST" })
     if (data.action === "general-loket-preview") {
       try {
         const now = new Date();
-        const [lastA, lastB] = await Promise.all([lastAppQueueNumber("A", now), lastAppQueueNumber("B", now)]);
-        return { ok: true as const, preview: await getGeneralLoketPreview(lastA, lastB) };
+        // Loket 1 → poli_umum, Loket 2 → customer_service (see general-loket-queue).
+        const [last1, last2] = await Promise.all([lastAppQueueNumber(serviceQueueLetter("poli_umum"), now), lastAppQueueNumber(serviceQueueLetter("customer_service"), now)]);
+        const next = (code: string, last: number) => serviceQueueLetter(code) + String(last + 1).padStart(3, "0");
+        return { ok: true as const, preview: { date: now.toLocaleDateString("sv-SE"), queues: [
+          { loket: 1 as const, number: next("poli_umum", last1) },
+          { loket: 2 as const, number: next("customer_service", last2) },
+        ] } };
       } catch {
         return { ok: false as const, message: "Nomor antrian loket belum dapat dimuat." };
       }

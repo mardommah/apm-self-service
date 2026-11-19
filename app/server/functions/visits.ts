@@ -6,7 +6,7 @@ import { visits, services, admins } from "../schema";
 import { ulid } from "~/lib/ulid";
 import { createGeneralLoketQueue } from "../simrs";
 import type { VisitStatus } from "../schema";
-import { DEFAULT_QUEUE_PREFIX, MLITE_SERVICE_CODES, type QueuePrefix } from "~/lib/queue-prefix";
+import { DEFAULT_QUEUE_PREFIX, MLITE_SERVICE_CODES, serviceQueueLetter, type QueuePrefix } from "~/lib/queue-prefix";
 
 // ─── Check device lock ────────────────────────────────────────────────────────
 export async function getActiveVisitByDevice(deviceId: string) {
@@ -43,14 +43,12 @@ export async function assertVisitOwnedByDevice(id: string, deviceId: string) {
 const OFFLINE_NOTE_PREFIX = "offline:";
 // Tickets that are also rows in SIMRS mlite_antrian_loket: "mlite:<kd>:<number>", e.g. "mlite:9600:A7".
 const MLITE_NOTE_PREFIX = "mlite:";
-// Lab & vaccination are called at the registration loket too, but are not recorded in mLITE (keep app numbers).
 /** Prefix set in admin settings ("A" Loket, "B" CS) for mLITE services, or null when not in mLITE. */
 export function mlitePrefix(service: { code: string; queuePrefix?: QueuePrefix | null }) {
   const fallback = DEFAULT_QUEUE_PREFIX[service.code];
   return fallback ? (service.queuePrefix ?? fallback) : null;
 }
 
-export const LOKET_SERVICE_CODES = [...MLITE_SERVICE_CODES, "laboratorium", "vaksinasi"];
 
 export function parseMliteNote(notes: string | null | undefined) {
   const match = notes?.match(/^mlite:(\d+):([AB])(\d+)$/);
@@ -67,11 +65,10 @@ export async function setServiceQueuePrefix(code: string, queuePrefix: QueuePref
 
 async function createMliteNote(queueType: 1 | 2) {
   try {
-    // Continue after A/B numbers the app issued itself while mLITE was down, so the two never collide.
-    const queue = await createGeneralLoketQueue(queueType, await lastAppQueueNumber(queueType === 1 ? "A" : "B", new Date()));
+    const queue = await createGeneralLoketQueue(queueType);
     return `${MLITE_NOTE_PREFIX}${queue.kd}:${queue.number}`;
   } catch (error) {
-    // SIMRS down must not block the kiosk: the ticket falls back to the app's own daily number.
+    // SIMRS down must not block the kiosk: the ticket just has no mLITE link.
     console.error("SIMRS loket queue failed", error);
     return null;
   }
@@ -123,41 +120,22 @@ export async function createVisit(
   const createdAt = offline?.createdAt ?? new Date();
   const notes = offline ? OFFLINE_NOTE_PREFIX + offline.queueNumber : mliteNote;
   const values = { id, serviceId: service.id, destinationServiceId, patientStatus, deviceId: null, status: "waiting" as const, createdAt, notes };
-  const fixedNumber = offline?.queueNumber ?? parseMliteNote(mliteNote)?.queueNumber;
-  const queueNumber = fixedNumber
-    ? (await insertWithFixedQueueNumber({ ...values, queueNumber: fixedNumber }), fixedNumber)
-    : await insertWithAppQueueNumber(
-        values,
-        // mLITE failed: still the A/B the patient picked (own counter, continued by the next mLITE number).
-        wantsMlite ? (queueType === 1 ? "A" : "B") : appQueueLetter(service.code, patientStatus),
-      );
+  // Every online ticket shows its service letter + the app's daily counter; the mLITE row (new patients) keeps its own number.
+  const queueNumber = offline
+    ? (await insertWithFixedQueueNumber({ ...values, queueNumber: offline.queueNumber }), offline.queueNumber)
+    : await insertWithAppQueueNumber(values, serviceQueueLetter(service.code));
 
   return { id, service, createdAt, notes, queueNumber };
 }
 
-// App tickets get a letter per service and their own daily counter; A/B belong to the mLITE queues (also their fallback when mLITE fails), O to offline kiosk2.
-const APP_QUEUE_LETTERS: Record<string, string> = {
-  registrasi: "C",
-  poli_umum: "D",
-  customer_service: "E",
-  laboratorium: "L",
-  vaksinasi: "V",
-};
-
-function appQueueLetter(serviceCode: string, patientStatus: "baru" | "lama" | null) {
-  // Existing general patients keep D even when they picked Loket 2 (stored as customer_service).
-  if (patientStatus === "lama") return serviceCode === "registrasi" ? "C" : "D";
-  return APP_QUEUE_LETTERS[serviceCode] ?? "P";
-}
-
-/** Highest number already issued today for `letter` (0 if none); A/B include the mLITE tickets. */
+/** Highest number already issued today for `letter` (0 if none). Exact letter: "L" must not count "LL" tickets. */
 export async function lastAppQueueNumber(letter: string, day: Date) {
   const dayStart = new Date(day);
   dayStart.setHours(0, 0, 0, 0);
   const [row] = await getDb()
-    .select({ last: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${visits.queueNumber}, 2) AS UNSIGNED)), 0)` })
+    .select({ last: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${visits.queueNumber}, ${letter.length + 1}) AS UNSIGNED)), 0)` })
     .from(visits)
-    .where(and(gte(visits.createdAt, dayStart), like(visits.queueNumber, `${letter}%`)));
+    .where(and(gte(visits.createdAt, dayStart), sql`${visits.queueNumber} REGEXP ${`^${letter}[0-9]+$`}`));
   return Number(row?.last ?? 0);
 }
 
@@ -438,7 +416,8 @@ export async function getAllServices() {
         eq(services.isActive, true),
         or(notLike(services.code, "poli_%"), eq(services.code, "poli_umum")),
       ),
-    );
+    )
+    .orderBy(services.id);
 }
 
 export async function getAdminServices() {

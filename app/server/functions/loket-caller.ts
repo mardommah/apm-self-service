@@ -4,7 +4,8 @@ import { and, asc, desc, eq, gte, notExists } from "drizzle-orm";
 import { getDb } from "../db";
 import { saveMliteRm } from "../mlite-loket";
 import { queueCalls, services, visits } from "../schema";
-import { getDailyQueueNumber, LOKET_SERVICE_CODES, markServed, mlitePrefix, parseMliteNote } from "./visits";
+import { getAllServices, getDailyQueueNumber, markServed, parseMliteNote } from "./visits";
+import { serviceQueueLetter } from "~/lib/queue-prefix";
 
 function todayStart() {
   const d = new Date();
@@ -34,14 +35,10 @@ function waitingUncalled(serviceCode: string) {
     .orderBy(asc(visits.createdAt));
 }
 
-/** Per service card: last called ticket today and how many are still waiting to be called. */
+/** One card per kiosk service (same list as the kiosk): last called ticket today and how many still wait. */
 export async function getLoketCallerState() {
   return Promise.all(
-    LOKET_SERVICE_CODES.map(async (code) => {
-      const [service] = await getDb()
-        .select({ label: services.label, queuePrefix: services.queuePrefix })
-        .from(services)
-        .where(eq(services.code, code));
+    (await getAllServices()).map(async ({ code, label }) => {
       const [last] = await getDb()
         .select({ ...visitFields, loket: queueCalls.loket, finishedAt: queueCalls.finishedAt })
         .from(queueCalls)
@@ -65,7 +62,7 @@ export async function getLoketCallerState() {
             finished: last.finishedAt !== null,
           }
         : null;
-      return { serviceCode: code, label: service?.label ?? code, prefix: mlitePrefix({ code, queuePrefix: service?.queuePrefix }), waiting: waitingRows.length, newest, current };
+      return { serviceCode: code, label, prefix: serviceQueueLetter(code), waiting: waitingRows.length, newest, current };
     }),
   );
 }
@@ -75,17 +72,21 @@ export async function findNextVisit(serviceCode: string) {
   return next ?? null;
 }
 
-/** "7", "A7" or "007" → today's ticket of this service with that number. */
+export async function isLoketService(serviceCode: string) {
+  return (await getAllServices()).some((service) => service.code === serviceCode);
+}
+
+/** "7", "D7", "LL7" or "007" → today's ticket of this service with that number. */
 export async function findVisitByNumber(serviceCode: string, input: string) {
-  const wanted = input.trim().toUpperCase().replace(/^([A-Z]?)0*(\d+)$/, "$1$2");
+  const wanted = input.trim().toUpperCase().replace(/^([A-Z]*)0*(\d+)$/, "$1$2");
   const rows = await getDb()
     .select(visitFields)
     .from(visits)
     .innerJoin(services, eq(visits.serviceId, services.id))
     .where(todayVisitsOf(serviceCode));
   for (const row of rows) {
-    const number = (await getDailyQueueNumber(row)).replace(/^([A-Z]?)0*(\d+)$/, "$1$2");
-    if (number === wanted || number.replace(/^[A-Z]/, "") === wanted) return row;
+    const number = (await getDailyQueueNumber(row)).replace(/^([A-Z]*)0*(\d+)$/, "$1$2");
+    if (number === wanted || number.replace(/^[A-Z]+/, "") === wanted) return row;
   }
   return null;
 }
