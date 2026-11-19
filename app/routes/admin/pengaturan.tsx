@@ -298,7 +298,7 @@ function SettingsPage() {
             <div className="mt-4 rounded-lg border p-4">
               <p className="font-medium text-gray-800">Prefix nomor antrean</p>
               <p className="text-sm text-gray-500">
-                A = antrean Loket, B = antrean CS di mLITE. Tiket tampil mis. A001, di mLITE tersimpan nomor 1.
+                A = antrean Loket, B = antrean CS di SIMRS. Tiket tampil mis. A001, di SIMRS tersimpan nomor 1.
               </p>
               <div className="mt-3 divide-y">
                 {data.services

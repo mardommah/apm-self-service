@@ -64,7 +64,7 @@ export const getDashboardDataAction = createServerFn({ method: "GET" })
     // Pasien baru (BPJS & Umum) tickets are linked to mlite_antrian_loket; SIMRS down only hides those times.
     const mliteKds = visitRows.map((v) => parseMliteNote(v.notes)?.kd).filter((kd): kd is number => kd !== undefined);
     const mliteTimes = await getMliteQueueTimes(mliteKds).catch((error) => {
-      console.error("mLITE queue times failed", error);
+      console.error("SIMRS queue times failed", error);
       return null;
     });
     const visits = await Promise.all(

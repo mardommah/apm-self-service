@@ -44,10 +44,10 @@ function VisitTimeline({ visit }: { visit: VisitRow }) {
       {visit.mlite && (
         <div className="mt-1 w-fit rounded bg-blue-50 px-1.5 py-0.5 text-blue-800">
           {visit.mlite === "unavailable" ? (
-            "mLITE: tidak terbaca"
+            "Task Id: tidak terbaca"
           ) : (
             <>
-              mLITE <span className="font-mono">{visit.mlite.startTime}</span> →{" "}
+              Task Id 1 <span className="font-mono">{visit.mlite.startTime}</span> {"->"} Task Id 2{" "}
               <span className="font-mono">{visit.mlite.endTime ?? "belum selesai"}</span>
             </>
           )}

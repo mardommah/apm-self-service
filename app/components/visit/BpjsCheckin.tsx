@@ -38,9 +38,9 @@ const bpjsAction = createServerFn({ method: "POST" })
 const messages: Record<string, string> = {
   BPJS_CARD_INVALID: "Nomor kartu BPJS harus tepat 13 digit.",
   NIK_INVALID: "NIK harus tepat 16 digit.",
-  MLITE_NOT_CONFIGURED: "Integrasi mLITE belum dikonfigurasi.",
-  MLITE_UNAVAILABLE: "mLITE/BPJS tidak dapat dihubungi. Belum ada check-in yang dibuat.",
-  MLITE_REQUEST_FAILED: "mLITE menolak permintaan. Hubungi petugas.",
+  MLITE_NOT_CONFIGURED: "Integrasi SIMRS belum dikonfigurasi.",
+  MLITE_UNAVAILABLE: "SIMRS/BPJS tidak dapat dihubungi. Belum ada check-in yang dibuat.",
+  MLITE_REQUEST_FAILED: "SIMRS menolak permintaan. Hubungi petugas.",
   FRISTA_AGENT_NOT_CONFIGURED: "Agent Frista belum dikonfigurasi pada kiosk.",
   BIOMETRIC_NOT_VERIFIED: "Verifikasi wajah belum dikonfirmasi BPJS.",
   PATIENT_MISMATCH: "Nomor kartu tidak cocok dengan sesi pasien.",

@@ -29,7 +29,7 @@ export const finishVisitAction = createServerFn({ method: "POST" })
     const mliteOk = await finishMliteQueue(mlite.kd).then(
       () => true,
       (error) => {
-        console.error("[finishVisitAction] mLITE end_time not updated", error);
+        console.error("[finishVisitAction] SIMRS end_time not updated", error);
         return false;
       },
     );

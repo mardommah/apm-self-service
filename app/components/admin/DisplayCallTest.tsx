@@ -34,7 +34,7 @@ export function DisplayCallTest({ token, target = "loket" }: { token: string; ta
         ) : (
           <p className="text-sm text-gray-500">
             Memutar contoh panggilan "A001 · Tes Panggilan" ke loket Anda (Loket saya) di layar <code>/display</code>: bel, overlay, suara 2×.
-            Tidak tercatat di antrean maupun mLITE.
+            Tidak tercatat di antrean maupun SIMRS.
           </p>
         )}
         {sent && <p className="mt-1 text-sm text-gray-500">Terkirim. Layar TV memutar panggilan dalam ±2 detik.</p>}

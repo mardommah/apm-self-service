@@ -72,7 +72,7 @@ async function createMliteNote(queueType: 1 | 2) {
     return `${MLITE_NOTE_PREFIX}${queue.kd}:${queue.number}`;
   } catch (error) {
     // SIMRS down must not block the kiosk: the ticket falls back to the app's own daily number.
-    console.error("mLITE loket queue failed", error);
+    console.error("SIMRS loket queue failed", error);
     return null;
   }
 }

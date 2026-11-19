@@ -51,7 +51,7 @@ export async function createQueueCall(pick: () => Promise<CalledVisit | null>, l
     await callMliteLoket(mlite.noantrian, mlite.type, loket, called.isRecall);
     return { mliteOk: true };
   } catch (error) {
-    console.error("mLITE setpanggil failed", error);
+    console.error("SIMRS setpanggil failed", error);
     return { mliteOk: false };
   }
 }
