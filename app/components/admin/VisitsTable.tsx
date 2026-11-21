@@ -20,7 +20,7 @@ interface VisitRow {
   calledAt?: Date | string | null;
   finishedAt?: Date | string | null;
   // Pasien baru linked to mLITE: its own start/end (HH:mm); "unavailable" when SIMRS could not be read.
-  mlite?: { startTime: string; endTime: string | null } | "unavailable" | null;
+  mlite?: { kd: number; noRkmMedis: string | null; startTime: string; endTime: string | null } | "unavailable" | null;
 }
 
 /** App steps in order, then mLITE's start_time / end_time for tickets linked to mlite_antrian_loket. */
@@ -49,6 +49,15 @@ function VisitTimeline({ visit }: { visit: VisitRow }) {
             <>
               Task Id 1 <span className="font-mono">{visit.mlite.startTime}</span> {"->"} Task Id 2{" "}
               <span className="font-mono">{visit.mlite.endTime ?? "belum selesai"}</span>
+              {/* Target row of Simpan RM in SIMRS. */}
+              <div className="text-blue-700">
+                mlite_antrian_loket kd <span className="font-mono">{visit.mlite.kd}</span> · RM{" "}
+                {visit.mlite.noRkmMedis ? (
+                  <span className="font-mono text-green-700">{visit.mlite.noRkmMedis} ✓</span>
+                ) : (
+                  <span className="font-semibold text-red-600">belum diisi</span>
+                )}
+              </div>
             </>
           )}
         </div>

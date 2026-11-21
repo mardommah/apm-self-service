@@ -11,7 +11,7 @@ const ERRORS: Record<string, string> = {
   RM_INVALID: "No RM harus 6 digit, contoh 059891.",
   VISIT_NOT_IN_MLITE: "Tiket ini tidak tercatat di SIMRS, No RM tidak bisa disimpan.",
   MLITE_RM_NOT_SAVED: "SIMRS tidak menyimpan No RM. Coba lagi.",
-  VISIT_NOT_WAITING: "Tiket ini sudah dilayani atau dibatalkan.",
+  VISIT_NOT_WAITING: "Tiket ini sudah selesai atau dibatalkan.",
   VISIT_REVOKED: "Tiket ini sudah dibatalkan.",
   CALL_NOT_FOUND: "Tiket ini belum pernah dipanggil.",
   LOCK_BUSY: "Loket lain sedang memanggil. Coba lagi.",

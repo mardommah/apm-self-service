@@ -38,7 +38,7 @@ export function LoketCallerCard({ card, busy, onCall, onRecall, onSaveRm, onServ
             <div className="font-mono text-5xl font-bold text-gray-900">{current.queueNumber}</div>
             <div className="mt-1 text-xs text-gray-500">
               Terakhir dipanggil · Loket {current.loket}
-              {current.finished ? " · Selesai" : current.status === "served" && (current.linked ? " · RM tersimpan" : " · Dilayani")}
+              {current.finished ? " · Selesai" : current.status === "served" && " · Dilayani"}
             </div>
           </>
         ) : (
@@ -76,7 +76,8 @@ export function LoketCallerCard({ card, busy, onCall, onRecall, onSaveRm, onServ
         <input required value={jump} onChange={(e) => setJump(e.target.value)} placeholder={`Panggil nomor lain, mis. ${card.prefix ? `${card.prefix}8` : "008"}`} aria-label={`Panggil nomor tertentu ${card.label}`} className={inputClass} />
         <Button type="submit" variant="outline" disabled={busy}>Panggil</Button>
       </form>
-      {current?.linked && current.status === "waiting" && (
+      {/* Also after Layani: petugas often clicks Layani before typing the RM. */}
+      {current?.linked && !current.finished && (current.status === "waiting" || current.status === "served") && (
         <form
           className="mt-2 flex gap-2"
           onSubmit={async (e) => {

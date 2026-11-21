@@ -30,19 +30,21 @@ export async function saveMliteRm(kd: number, noantrian: string, type: MliteType
   if (rows[0]?.no_rkm_medis !== noRkmMedis) throw new Error("MLITE_RM_NOT_SAVED");
 }
 
-export type MliteQueueTimes = { startTime: string; endTime: string | null };
+export type MliteQueueTimes = { kd: number; noRkmMedis: string | null; startTime: string; endTime: string | null };
 
-/** Read-only: start_time / end_time per mlite_antrian_loket kd. end_time '00:00:00' = not closed yet. */
+/** Read-only: no_rkm_medis, start_time / end_time per mlite_antrian_loket kd. end_time '00:00:00' = not closed yet. */
 export async function getMliteQueueTimes(kds: number[]) {
   const times = new Map<number, MliteQueueTimes>();
   if (kds.length === 0) return times;
   const [rows] = await getSimrsPool().query<RowDataPacket[]>(
-    "SELECT kd, TIME_FORMAT(start_time, '%H:%i') AS start_time, TIME_FORMAT(end_time, '%H:%i:%s') AS end_time FROM mlite_antrian_loket WHERE kd IN (?)",
+    "SELECT kd, no_rkm_medis, TIME_FORMAT(start_time, '%H:%i') AS start_time, TIME_FORMAT(end_time, '%H:%i:%s') AS end_time FROM mlite_antrian_loket WHERE kd IN (?)",
     [kds],
   );
   for (const row of rows) {
     const endTime = row.end_time && row.end_time !== "00:00:00" ? String(row.end_time).slice(0, 5) : null;
-    times.set(Number(row.kd), { startTime: String(row.start_time), endTime });
+    // Empty / "-" = RM not filled yet.
+    const noRkmMedis = row.no_rkm_medis && row.no_rkm_medis !== "-" ? String(row.no_rkm_medis) : null;
+    times.set(Number(row.kd), { kd: Number(row.kd), noRkmMedis, startTime: String(row.start_time), endTime });
   }
   return times;
 }

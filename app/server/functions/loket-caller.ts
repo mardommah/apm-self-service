@@ -91,14 +91,15 @@ export async function findVisitByNumber(serviceCode: string, input: string) {
   return null;
 }
 
-/** Writes the RM to SIMRS mlite_antrian_loket, then marks the ticket served. */
+/** Writes the RM to SIMRS mlite_antrian_loket, then marks the ticket served (also allowed once already served). */
 export async function saveVisitRm(visitId: string, noRkmMedis: string, adminId: number) {
   const [visit] = await getDb().select(visitFields).from(visits).where(eq(visits.id, visitId)).limit(1);
   const mlite = parseMliteNote(visit?.notes);
   if (!mlite) throw new Error("VISIT_NOT_IN_MLITE");
   // Checked before writing to SIMRS so a revoked/served ticket never gets an RM there.
-  if (visit!.status !== "waiting") throw new Error("VISIT_NOT_WAITING");
+  if (visit!.status !== "waiting" && visit!.status !== "served") throw new Error("VISIT_NOT_WAITING");
   await saveMliteRm(mlite.kd, mlite.noantrian, mlite.type, noRkmMedis);
+  if (visit!.status === "served") return;
   const served = await markServed(visitId, adminId);
   if (!served.success) throw new Error("VISIT_NOT_WAITING");
 }
