@@ -4,6 +4,7 @@ import { getSavedLoket } from "~/lib/admin-loket";
 import { getDashboardDataAction } from "~/server/actions/dashboard-data";
 import { revokeAction, serveAction } from "~/server/actions/dashboard-visits";
 import { callVisitAction, finishVisitAction } from "~/server/actions/display";
+import { saveRmAction } from "~/server/actions/loket-caller";
 import { defaultFilters, type Filters } from "./VisitFilters";
 
 /** Data + actions for the visits page: filters apply on submit, auto refresh every 30s. */
@@ -64,6 +65,8 @@ export function useAdminVisits() {
       run(visit.id, () => callVisitAction({ data: { token, visitId: visit.id, loket: getSavedLoket() } }), "Gagal memanggil antrian. Coba lagi."),
     finish: (visitId: string) =>
       run(visitId, () => finishVisitAction({ data: { token, visitId } }), "Gagal menandai selesai. Coba lagi."),
+    saveRm: (visitId: string, noRkmMedis: string) =>
+      run(visitId, () => saveRmAction({ data: { token, visitId, noRkmMedis } }), "Gagal menyimpan No RM ke SIMRS. Coba lagi."),
   };
 
   return { token, data, filters, setFilters, applied, page, loadingVisit, fetchData, actions };

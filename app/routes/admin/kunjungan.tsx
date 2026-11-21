@@ -46,6 +46,7 @@ function VisitsPage() {
             onRevoke={actions.revoke}
             onCall={actions.call}
             onFinish={actions.finish}
+            onSaveRm={actions.saveRm}
             loading={loadingVisit}
           />
           <nav className="mt-4 flex items-center justify-between" aria-label="Pagination kunjungan">

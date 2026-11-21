@@ -21,8 +21,8 @@ export function finishMliteQueue(kd: number) {
 }
 
 /** simpannorm only accepts a 6-character RM; verified by reading the row back by its kd. */
-export async function saveMliteRm(kd: number, noantrian: string, type: MliteType, noRkmMedis: string) {
-  await directSimpanNoRm(getSimrsPool(), type, noantrian, noRkmMedis);
+export async function saveMliteRm(kd: number, noRkmMedis: string) {
+  await directSimpanNoRm(getSimrsPool(), kd, noRkmMedis);
   const [rows] = await getSimrsPool().query<RowDataPacket[]>(
     "SELECT no_rkm_medis FROM mlite_antrian_loket WHERE kd = ?",
     [kd],

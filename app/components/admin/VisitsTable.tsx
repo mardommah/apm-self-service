@@ -24,7 +24,8 @@ interface VisitRow {
 }
 
 /** App steps in order, then mLITE's start_time / end_time for tickets linked to mlite_antrian_loket. */
-function VisitTimeline({ visit }: { visit: VisitRow }) {
+function VisitTimeline({ visit, onSaveRm, busy }: { visit: VisitRow; onSaveRm: Props["onSaveRm"]; busy: boolean }) {
+  const [rm, setRm] = useState("");
   const steps: [string, Date | string | null | undefined][] = [
     ["Daftar", visit.createdAt],
     ["Dipanggil", visit.calledAt],
@@ -58,6 +59,24 @@ function VisitTimeline({ visit }: { visit: VisitRow }) {
                   <span className="font-semibold text-red-600">belum diisi</span>
                 )}
               </div>
+              {/* Fill a missed RM (e.g. Layani clicked before Simpan RM). */}
+              {!visit.mlite.noRkmMedis && visit.status !== "revoked" && (
+                <form
+                  className="mt-1 flex gap-1"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    await onSaveRm(visit.id, rm);
+                    setRm("");
+                  }}
+                >
+                  <input required inputMode="numeric" pattern="\d{6}" maxLength={6} value={rm} onChange={(e) => setRm(e.target.value)}
+                    placeholder="No RM" aria-label={`No RM ${visit.queueNumber}`}
+                    className="h-7 w-20 rounded border border-gray-300 bg-white px-1.5 font-mono text-gray-900" />
+                  <Button type="submit" size="sm" variant="success" className="h-7 px-2" disabled={busy}>
+                    {busy ? "..." : "Simpan"}
+                  </Button>
+                </form>
+              )}
             </>
           )}
         </div>
@@ -72,6 +91,7 @@ interface Props {
   onRevoke: (id: string) => Promise<void>;
   onCall: (visit: VisitRow) => Promise<void>;
   onFinish: (id: string) => Promise<void>;
+  onSaveRm: (id: string, noRkmMedis: string) => Promise<void>;
   loading?: string | null; // visit id being processed
 }
 
@@ -81,7 +101,7 @@ const statusVariant: Record<string, "warning" | "success" | "destructive" | "sec
   revoked: "destructive",
 };
 
-export function VisitsTable({ visits, onServe, onRevoke, onCall, onFinish, loading }: Props) {
+export function VisitsTable({ visits, onServe, onRevoke, onCall, onFinish, onSaveRm, loading }: Props) {
   const [confirm, setConfirm] = useState<string | null>(null);
 
   if (visits.length === 0) {
@@ -155,7 +175,7 @@ export function VisitsTable({ visits, onServe, onRevoke, onCall, onFinish, loadi
                   </span>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap max-md:col-span-2 max-md:row-start-3 max-md:p-0">
-                  <VisitTimeline visit={v} />
+                  <VisitTimeline visit={v} onSaveRm={onSaveRm} busy={loading === v.id} />
                 </td>
                 <td className="px-4 py-3 max-md:col-start-2 max-md:row-start-1 max-md:p-0 max-md:text-right">
                   <Badge variant={statusVariant[v.status] ?? "secondary"}>

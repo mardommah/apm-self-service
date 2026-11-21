@@ -52,11 +52,8 @@ export async function directFinishQueue(db: Db, kd: number) {
   );
 }
 
-/** getSimpanNoRM: RM must be exactly 6 characters. */
-export async function directSimpanNoRm(db: Db, type: MliteType, noantrian: string, noRkmMedis: string) {
+/** getSimpanNoRM: RM must be exactly 6 characters. By kd (not noantrian + today) so missed RMs of past days can be filled. */
+export async function directSimpanNoRm(db: Db, kd: number, noRkmMedis: string) {
   if (noRkmMedis.length !== 6) throw new Error("Gagal! Nomor Rekam Medis Tidak Valid");
-  await db.query(
-    "UPDATE mlite_antrian_loket SET no_rkm_medis = ? WHERE noantrian = ? AND type = ? AND postdate = CURRENT_DATE()",
-    [noRkmMedis, noantrian, TABLE_TYPE[type]],
-  );
+  await db.query("UPDATE mlite_antrian_loket SET no_rkm_medis = ? WHERE kd = ?", [noRkmMedis, kd]);
 }

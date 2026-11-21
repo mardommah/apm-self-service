@@ -98,7 +98,7 @@ export async function saveVisitRm(visitId: string, noRkmMedis: string, adminId: 
   if (!mlite) throw new Error("VISIT_NOT_IN_MLITE");
   // Checked before writing to SIMRS so a revoked/served ticket never gets an RM there.
   if (visit!.status !== "waiting" && visit!.status !== "served") throw new Error("VISIT_NOT_WAITING");
-  await saveMliteRm(mlite.kd, mlite.noantrian, mlite.type, noRkmMedis);
+  await saveMliteRm(mlite.kd, noRkmMedis);
   if (visit!.status === "served") return;
   const served = await markServed(visitId, adminId);
   if (!served.success) throw new Error("VISIT_NOT_WAITING");
