@@ -60,7 +60,7 @@ function RmCell({ visit, onSaveRm, busy }: { visit: VisitRow; onSaveRm: Props["o
   const mlite = visit.mlite;
   if (!mlite) return <span className="text-gray-300">–</span>;
   if (mlite === "unavailable") return <span className="text-xs text-gray-400">SIMRS tidak terbaca</span>;
-  const ref = <div className="mt-1 font-mono text-[11px] text-gray-400" title="Baris tujuan Simpan RM di SIMRS">mlite_antrian_loket kd {mlite.kd}</div>;
+  const ref = <div className="mt-1 font-mono text-[11px] text-gray-400" title="Baris tujuan Simpan RM di SIMRS">antrian_loket id {mlite.kd}</div>;
   if (mlite.noRkmMedis) {
     return (
       <div>
