@@ -23,64 +23,71 @@ interface VisitRow {
   mlite?: { kd: number; noRkmMedis: string | null; startTime: string; endTime: string | null } | "unavailable" | null;
 }
 
-/** App steps in order, then mLITE's start_time / end_time for tickets linked to mlite_antrian_loket. */
-function VisitTimeline({ visit, onSaveRm, busy }: { visit: VisitRow; onSaveRm: Props["onSaveRm"]; busy: boolean }) {
-  const [rm, setRm] = useState("");
+/** App steps in order, then mLITE's start_time / end_time (Task Id 1 / 2) for tickets linked to mlite_antrian_loket. */
+function VisitTimeline({ visit }: { visit: VisitRow }) {
   const steps: [string, Date | string | null | undefined][] = [
     ["Daftar", visit.createdAt],
     ["Dipanggil", visit.calledAt],
     ["Dilayani", visit.servedAt],
     ["Selesai", visit.finishedAt],
   ];
+  const mlite = visit.mlite;
   return (
-    <div className="space-y-0.5 text-xs" title={formatDate(visit.createdAt)}>
-      <dl className="grid grid-cols-[auto_auto] gap-x-2 text-gray-500">
-        {steps.map(([label, time]) => (
-          <div key={label} className="contents">
-            <dt>{label}</dt>
-            <dd className={time ? "font-mono text-gray-800" : "text-gray-300"}>{time ? clock(time) : "–"}</dd>
-          </div>
-        ))}
-      </dl>
-      {visit.mlite && (
-        <div className="mt-1 w-fit rounded bg-blue-50 px-1.5 py-0.5 text-blue-800">
-          {visit.mlite === "unavailable" ? (
-            "Task Id: tidak terbaca"
-          ) : (
-            <>
-              Task Id 1 <span className="font-mono">{visit.mlite.startTime}</span> {"->"} Task Id 2{" "}
-              <span className="font-mono">{visit.mlite.endTime ?? "belum selesai"}</span>
-              {/* Target row of Simpan RM in SIMRS. */}
-              <div className="text-blue-700">
-                mlite_antrian_loket kd <span className="font-mono">{visit.mlite.kd}</span> · RM{" "}
-                {visit.mlite.noRkmMedis ? (
-                  <span className="font-mono text-green-700">{visit.mlite.noRkmMedis} ✓</span>
-                ) : (
-                  <span className="font-semibold text-red-600">belum diisi</span>
-                )}
-              </div>
-              {/* Fill a missed RM (e.g. Layani clicked before Simpan RM). */}
-              {!visit.mlite.noRkmMedis && visit.status !== "revoked" && (
-                <form
-                  className="mt-1 flex gap-1"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    await onSaveRm(visit.id, rm);
-                    setRm("");
-                  }}
-                >
-                  <input required inputMode="numeric" pattern="\d{6}" maxLength={6} value={rm} onChange={(e) => setRm(e.target.value)}
-                    placeholder="No RM" aria-label={`No RM ${visit.queueNumber}`}
-                    className="h-7 w-20 rounded border border-gray-300 bg-white px-1.5 font-mono text-gray-900" />
-                  <Button type="submit" size="sm" variant="success" className="h-7 px-2" disabled={busy}>
-                    {busy ? "..." : "Simpan"}
-                  </Button>
-                </form>
-              )}
-            </>
-          )}
+    <dl className="grid w-fit grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-xs text-gray-500" title={formatDate(visit.createdAt)}>
+      {steps.map(([label, time]) => (
+        <div key={label} className="contents">
+          <dt>{label}</dt>
+          <dd className={time ? "font-mono text-gray-800" : "text-gray-300"}>{time ? clock(time) : "–"}</dd>
         </div>
+      ))}
+      {/* Same grid as the app steps so the SIMRS times line up under them; first row carries the divider. */}
+      {mlite === "unavailable" && <dd className="col-span-2 mt-1 border-t border-blue-100 pt-1 text-blue-700">Task Id: tidak terbaca</dd>}
+      {mlite && mlite !== "unavailable" && (
+        <>
+          <dt className="mt-1 border-t border-blue-100 pt-1 text-blue-700">Task Id 1</dt>
+          <dd className="mt-1 border-t border-blue-100 pt-1 font-mono text-blue-900">{mlite.startTime}</dd>
+          <dt className="text-blue-700">Task Id 2</dt>
+          <dd className={mlite.endTime ? "font-mono text-blue-900" : "text-amber-600"}>{mlite.endTime ?? "belum selesai"}</dd>
+        </>
       )}
+    </dl>
+  );
+}
+
+/** No RM in SIMRS mlite_antrian_loket (target of Simpan RM): saved value, or an input to fill a missed one. */
+function RmCell({ visit, onSaveRm, busy }: { visit: VisitRow; onSaveRm: Props["onSaveRm"]; busy: boolean }) {
+  const [rm, setRm] = useState("");
+  const mlite = visit.mlite;
+  if (!mlite) return <span className="text-gray-300">–</span>;
+  if (mlite === "unavailable") return <span className="text-xs text-gray-400">SIMRS tidak terbaca</span>;
+  const ref = <div className="mt-1 font-mono text-[11px] text-gray-400" title="Baris tujuan Simpan RM di SIMRS">mlite_antrian_loket kd {mlite.kd}</div>;
+  if (mlite.noRkmMedis) {
+    return (
+      <div>
+        <span className="inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-1 font-mono font-semibold text-green-700">✓ {mlite.noRkmMedis}</span>
+        {ref}
+      </div>
+    );
+  }
+  if (visit.status === "revoked") return <span className="text-gray-300">–</span>;
+  return (
+    <div>
+      <form
+        className="flex gap-1.5"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await onSaveRm(visit.id, rm);
+          setRm("");
+        }}
+      >
+        <input required inputMode="numeric" pattern="\d{6}" maxLength={6} value={rm} onChange={(e) => setRm(e.target.value)}
+          placeholder="Belum diisi" title="No RM 6 digit, contoh 059891" aria-label={`No RM ${visit.queueNumber}`}
+          className="h-9 w-28 rounded-md border border-red-300 bg-red-50 px-2 font-mono text-gray-900 placeholder:text-red-400 focus:bg-white" />
+        <Button type="submit" size="sm" variant="success" className="h-9" disabled={busy}>
+          {busy ? "..." : "Simpan"}
+        </Button>
+      </form>
+      {ref}
     </div>
   );
 }
@@ -146,7 +153,7 @@ export function VisitsTable({ visits, onServe, onRevoke, onCall, onFinish, onSav
         </div>
       )}
 
-      {/* Table from md; below that each row is a card (number + status, service, timeline, actions). */}
+      {/* Table from md; below that each row is a card (number + status, service, timeline, No RM, actions). */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
         <table className="w-full text-sm max-md:block">
           <thead className="bg-gray-50 border-b border-gray-200 max-md:hidden">
@@ -155,6 +162,7 @@ export function VisitsTable({ visits, onServe, onRevoke, onCall, onFinish, onSav
               <th className="text-left px-4 py-2.5 font-medium text-gray-500">Layanan</th>
               <th className="text-left px-4 py-2.5 font-medium text-gray-500">Waktu</th>
               <th className="text-left px-4 py-2.5 font-medium text-gray-500">Status</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500">No RM</th>
               <th className="text-right px-4 py-2.5 font-medium text-gray-500">Aksi</th>
             </tr>
           </thead>
@@ -175,7 +183,7 @@ export function VisitsTable({ visits, onServe, onRevoke, onCall, onFinish, onSav
                   </span>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap max-md:col-span-2 max-md:row-start-3 max-md:p-0">
-                  <VisitTimeline visit={v} onSaveRm={onSaveRm} busy={loading === v.id} />
+                  <VisitTimeline visit={v} />
                 </td>
                 <td className="px-4 py-3 max-md:col-start-2 max-md:row-start-1 max-md:p-0 max-md:text-right">
                   <Badge variant={statusVariant[v.status] ?? "secondary"}>
@@ -187,6 +195,9 @@ export function VisitsTable({ visits, onServe, onRevoke, onCall, onFinish, onSav
                       {v.servedByAdmin ? `oleh ${v.servedByAdmin.username}` : `Scan HP ${clock(v.scannedAt!)}`}
                     </div>
                   )}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap max-md:col-span-2 max-md:p-0">
+                  <RmCell visit={v} onSaveRm={onSaveRm} busy={loading === v.id} />
                 </td>
                 <td className="px-4 py-3 max-md:col-span-2 max-md:p-0">
                   <div className="flex flex-wrap items-center justify-end gap-2 max-md:justify-start">
