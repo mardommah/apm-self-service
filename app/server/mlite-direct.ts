@@ -29,17 +29,21 @@ export async function directMoveCounter(db: Db, type: MliteType, noantrian: stri
   const [rows] = await db.query<any[]>("SELECT value FROM mlite_settings WHERE module = 'anjungan' AND field = ?", [`${field}_nomor`]);
   const counter = rows[0]?.value ?? "";
   await db.query(
-    "UPDATE mlite_antrian_loket SET end_time = CURRENT_TIME() WHERE type = ? AND noantrian = ? AND postdate = CURRENT_DATE()",
+    // Kept once set: end_time is Task Id 2, already stamped when that number was called (directSetPanggil).
+    "UPDATE mlite_antrian_loket SET end_time = IF(end_time = '00:00:00', CURRENT_TIME(), end_time) WHERE type = ? AND noantrian = ? AND postdate = CURRENT_DATE()",
     [TABLE_TYPE[type], counter],
   );
   await setSetting(db, field, String(loket));
   await setSetting(db, `${field}_nomor`, noantrian);
 }
 
-/** getSetPanggil: status 1 + loket. */
+/**
+ * getSetPanggil: status 1 + loket. Also end_time on the first call: end_time is BPJS Task Id 2 (mulai pelayanan
+ * admisi); stamped later (next call / Selesai) it lands after the SIMRS registration (Task Id 3) and the pair is reversed.
+ */
 export async function directSetPanggil(db: Db, type: MliteType, noantrian: string, loket: number) {
   await db.query(
-    "UPDATE mlite_antrian_loket SET status = '1', loket = ? WHERE type = ? AND noantrian = ? AND postdate = CURRENT_DATE()",
+    "UPDATE mlite_antrian_loket SET status = '1', loket = ?, end_time = IF(end_time = '00:00:00', CURRENT_TIME(), end_time) WHERE type = ? AND noantrian = ? AND postdate = CURRENT_DATE()",
     [String(loket), TABLE_TYPE[type], noantrian],
   );
 }

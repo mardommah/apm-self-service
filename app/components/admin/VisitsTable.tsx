@@ -47,7 +47,7 @@ function VisitTimeline({ visit }: { visit: VisitRow }) {
           <dt className="mt-1 border-t border-blue-100 pt-1 text-blue-700">Task Id 1</dt>
           <dd className="mt-1 border-t border-blue-100 pt-1 font-mono text-blue-900">{mlite.startTime}</dd>
           <dt className="text-blue-700">Task Id 2</dt>
-          <dd className={mlite.endTime ? "font-mono text-blue-900" : "text-amber-600"}>{mlite.endTime ?? "belum selesai"}</dd>
+          <dd className={mlite.endTime ? "font-mono text-blue-900" : "text-amber-600"}>{mlite.endTime ?? "belum dipanggil"}</dd>
         </>
       )}
     </dl>
